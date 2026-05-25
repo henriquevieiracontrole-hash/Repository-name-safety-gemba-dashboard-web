@@ -125,7 +125,13 @@ function listenInspections() {
   if (unsubscribeInspections) unsubscribeInspections();
 
   unsubscribeInspections = onSnapshot(collection(db, "inspections"), (snapshot) => {
-    allInspections = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+   allInspections = snapshot.docs
+  .map((doc) => ({ id: doc.id, ...doc.data() }))
+  .filter((inspection) =>
+    inspection.deleted !== true &&
+    inspection.isDeleted !== true &&
+    !inspection.deletedAt
+  );
     applyUserVisibility();
     fillAreaFilter();
     render();
