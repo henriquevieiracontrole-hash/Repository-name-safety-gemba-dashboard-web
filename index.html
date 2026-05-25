@@ -61,8 +61,10 @@ $("searchInput").addEventListener("input", render);
 $("areaFilter").addEventListener("change", render);
 $("statusFilter").addEventListener("change", render);
 $("criticalFilter").addEventListener("change", render);
-$("detailClose").addEventListener("click", closeDetailPanel);
-$("detailBackdrop").addEventListener("click", closeDetailPanel);
+window.addEventListener("DOMContentLoaded", () => {
+  $("detailClose")?.addEventListener("click", closeDetailPanel);
+  $("detailBackdrop")?.addEventListener("click", closeDetailPanel);
+});
 
 async function login() {
   loginError.textContent = "";
