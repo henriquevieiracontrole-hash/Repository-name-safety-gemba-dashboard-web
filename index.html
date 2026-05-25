@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Safety Gemba Walk | Dashboard Executivo</title>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, getDocs, onSnapshot, query, where, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBNnfn-evmqfiVxJA_a8Qfl_PO0_Z_QkK4",
+  authDomain: "safetygembawalk.firebaseapp.com",
+  projectId: "safetygembawalk",
+  storageBucket: "safetygembawalk.firebasestorage.app",
+  messagingSenderId: "903981059784",
+  appId: "1:903981059784:web:fd9770f007ada80b981ffd",
+  measurementId: "G-MP18X051F5"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let allInspections = [];
+let visibleInspections = [];
+let currentUserProfile = null;
+let unsubscribeInspections = null;
+let activeView = "overview";
+
+const $ = (id) => document.getElementById(id);
+
+const loginScreen = $("loginScreen");
+const appScreen = $("appScreen");
+const loginBtn = $("loginBtn");
+const logoutBtn = $("logoutBtn");
+const loginError = $("loginError");
+const emailInput = $("email");
+const passwordInput = $("password");
+
+loginBtn.addEventListener("click", login);
+passwordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+
+logoutBtn.addEventListener("click", async () => {
+  if (unsubscribeInspections) unsubscribeInspections();
+  await signOut(auth);
+});
+
+document.querySelectorAll("[data-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    activeView = button.dataset.view;
+    setActiveButton();
+    render();
+  });
+});
+
+$("searchInput").addEventListener("input", render);
+$("areaFilter").addEventListener("change", render);
+$("statusFilter").addEventListener("change", render);
+$("criticalFilter").addEventListener("change", render);
+
+async function login() {
+  loginError.textContent = "";
+  loginBtn.disabled = true;
+  loginBtn.textContent = "Entrando...";
+
+  try {
+    await signInWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
+  } catch (error) {
+    loginError.textContent = "Usuário ou senha inválidos.";
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.textContent = "Entrar";
+  }
+}
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    loginScreen.style.display = "grid";
+    appScreen.style.display = "none";
+    return;
+  }
+
+  loginScreen.style.display = "none";
+  appScreen.style.display = "grid";
+
+  currentUserProfile = await loadUserProfile(user.email);
+  $("userName").textContent = currentUserProfile.fullName || user.email;
+  $("userRole").textContent = currentUserProfile.isAdmin ? "Administrador" : "Usuário comum";
+
+  listenInspections();
+});
+
+async function loadUserProfile(email) {
+  const base = {
+    email,
+    fullName: email,
+    area: "",
+    isAdmin: email === "henrique.vieira@ahlstrom.com"
+  };
+
+  try {
+    const q = query(collection(db, "users"), where("email", "==", email), limit(1));
+    const snap = await getDocs(q);
+
+    if (!snap.empty) {
+      const data = snap.docs[0].data();
+      return {
+        email,
+        fullName: data.fullName || `${data.firstName || ""} ${data.lastName || ""}`.trim() || email,
+        area: data.area || "",
+        isAdmin: data.role === "admin" || data.isAdmin === true || email === "henrique.vieira@ahlstrom.com"
+      };
+    }
+  } catch (error) {
+    console.warn("Não foi possível ler perfil do usuário:", error);
+  }
+
+  return base;
+}
+
+function listenInspections() {
+  if (unsubscribeInspections) unsubscribeInspections();
+
+  unsubscribeInspections = onSnapshot(collection(db, "inspections"), (snapshot) => {
+    allInspections = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    applyUserVisibility();
+    fillAreaFilter();
+    render();
+    $("syncStatus").textContent = "Atualizado agora";
+  }, (error) => {
+    console.error(error);
+    $("syncStatus").textContent = "Erro ao carregar dados";
+  });
+}
+
+
+function firstValidText(values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+
+    if (typeof value === "string" && value.trim() !== "") {
+      return value.trim();
+    }
+
+    if (typeof value === "number") {
+      return String(value);
+    }
+  }
+
+  return "";
+}
+
+function getInspectorName(inspection, action = null) {
+  const name = firstValidText([
+    action?.inspectorName,
+    action?.inspector,
+    action?.createdByName,
+    action?.responsibleName,
+    action?.responsible,
+    action?.userName,
+
+    inspection?.inspectorName,
+    inspection?.inspector,
+    inspection?.createdByName,
+    inspection?.responsibleName,
+    inspection?.responsible,
+    inspection?.userName,
+
+    inspection?.user?.fullName,
+    inspection?.user?.name,
+    inspection?.createdBy?.fullName,
+    inspection?.createdBy?.name
+  ]);
+
+  if (name) {
+    return name;
+  }
+
+  const email = firstValidText([
+    action?.inspectorEmail,
+    action?.email,
+    action?.createdByEmail,
+    inspection?.inspectorEmail,
+    inspection?.email,
+    inspection?.createdByEmail,
+    inspection?.user?.email,
+    inspection?.createdBy?.email
+  ]);
+
+  return email || "-";
+}
+
+
+function applyUserVisibility() {
+  if (!currentUserProfile || currentUserProfile.isAdmin) {
+    visibleInspections = allInspections;
+    return;
+  }
+
+  visibleInspections = allInspections.filter((inspection) => {
+    const nameMatch = normalize(getInspectorName(inspection)) === normalize(currentUserProfile.fullName);
+    const areaMatch = currentUserProfile.area && normalize(inspection.location) === normalize(currentUserProfile.area);
+    const emailMatch = normalize(inspection.inspectorEmail || inspection.email) === normalize(currentUserProfile.email);
+    return nameMatch || areaMatch || emailMatch;
+  });
+}
+
+function fillAreaFilter() {
+  const select = $("areaFilter");
+  const previous = select.value;
+  const areas = [...new Set(visibleInspections.map(i => i.location || "Sem área"))].sort();
+
+  select.innerHTML = `<option value="">Todas as áreas</option>` + areas.map(area =>
+    `<option value="${escapeHtml(area)}">${escapeHtml(area)}</option>`
+  ).join("");
+
+  select.value = [...select.options].some(o => o.value === previous) ? previous : "";
+}
+
+function render() {
+  const rows = getRows();
+  renderKpis();
+  renderCharts();
+  renderTable(rows);
+}
+
+function getRows() {
+  const search = normalize($("searchInput").value);
+  const area = $("areaFilter").value;
+  const status = $("statusFilter").value;
+  const criticalOnly = $("criticalFilter").value === "critical";
+
+  let rows = [];
+
+  visibleInspections.forEach((inspection) => {
+    const actions = Array.isArray(inspection.actions) ? inspection.actions : [];
+
+    if (activeView === "inspections") {
+      rows.push({ type: "inspection", inspection, action: null });
+      return;
+    }
+
+    actions.forEach((action) => rows.push({ type: "action", inspection, action }));
+  });
+
+  if (activeView === "pending") rows = rows.filter(r => r.action && isPending(r.action));
+  if (activeView === "critical") rows = rows.filter(r => r.action && isCritical(r.action));
+  if (activeView === "os") rows = rows.filter(r => r.action && r.action.hasWorkOrder);
+
+  if (area) rows = rows.filter(r => (r.inspection.location || "Sem área") === area);
+
+  if (status) {
+    rows = rows.filter(r => {
+      if (!r.action) return status === "INSPECTION";
+      return String(r.action.status || "").toUpperCase() === status;
+    });
+  }
+
+  if (criticalOnly) rows = rows.filter(r => r.action && isCritical(r.action));
+
+  if (search) {
+    rows = rows.filter(r => {
+      const haystack = [
+        r.inspection.title,
+        r.inspection.location,
+        getInspectorName(r.inspection, r.action),
+        r.action?.unsafeCondition,
+        r.action?.description,
+        r.action?.immediateAction,
+        r.action?.workOrderNumber
+      ].join(" ");
+      return normalize(haystack).includes(search);
+    });
+  }
+
+  return rows.sort((a, b) => {
+    const ac = a.action ? Number(isCritical(a.action)) : 0;
+    const bc = b.action ? Number(isCritical(b.action)) : 0;
+    if (bc !== ac) return bc - ac;
+    return toMillis(b.action?.createdAt || b.inspection.createdAt) - toMillis(a.action?.createdAt || a.inspection.createdAt);
+  });
+}
+
+function renderKpis() {
+  const allActionRows = [];
+  visibleInspections.forEach((inspection) => {
+    (inspection.actions || []).forEach(action => allActionRows.push({ inspection, action }));
+  });
+
+  setText("kpiInspections", visibleInspections.length);
+  setText("kpiActions", allActionRows.length);
+  setText("kpiPending", allActionRows.filter(r => isPending(r.action)).length);
+  setText("kpiCompleted", allActionRows.filter(r => isCompleted(r.action)).length);
+  setText("kpiOs", allActionRows.filter(r => r.action.hasWorkOrder && isPending(r.action)).length);
+  setText("kpiCritical", allActionRows.filter(r => isPending(r.action) && isCritical(r.action)).length);
+}
+
+function renderCharts() {
+  const actionRows = [];
+  visibleInspections.forEach((inspection) => {
+    (inspection.actions || []).forEach(action => {
+      if (isPending(action)) actionRows.push({ inspection, action });
+    });
+  });
+
+  const areaMap = new Map();
+  actionRows.forEach(r => {
+    const area = r.inspection.location || "Sem área";
+    areaMap.set(area, (areaMap.get(area) || 0) + 1);
+  });
+
+  const ranking = [...areaMap.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+
+  const age = [
+    { label: "0-3 dias", value: actionRows.filter(r => daysSince(r.action.createdAt) <= 3).length },
+    { label: "4-7 dias", value: actionRows.filter(r => daysSince(r.action.createdAt) >= 4 && daysSince(r.action.createdAt) <= 7).length },
+    { label: "8+ dias", value: actionRows.filter(r => daysSince(r.action.createdAt) >= 8).length }
+  ];
+
+  const osRows = actionRows.filter(r => r.action.hasWorkOrder);
+  const osAge = [
+    { label: "0-7 dias", value: osRows.filter(r => daysSince(r.action.workOrderOpenDate) <= 7).length },
+    { label: "8-30 dias", value: osRows.filter(r => daysSince(r.action.workOrderOpenDate) >= 8 && daysSince(r.action.workOrderOpenDate) <= 30).length },
+    { label: "31+ dias", value: osRows.filter(r => daysSince(r.action.workOrderOpenDate) >= 31).length }
+  ];
+
+  renderBarChart("chartArea", ranking, "Sem pendências por área.");
+  renderBarChart("chartAge", age, "Sem pendências.");
+  renderBarChart("chartOs", osAge, "Sem OS pendente.");
+}
+
+function renderBarChart(id, items, emptyText) {
+  const el = $(id);
+  const max = Math.max(...items.map(i => i.value), 0);
+
+  if (!items.length || max === 0) {
+    el.innerHTML = `<div class="empty">${emptyText}</div>`;
+    return;
+  }
+
+  el.innerHTML = items.map(item => {
+    const width = Math.max(6, Math.round((item.value / max) * 100));
+    return `
+      <div class="bar-row">
+        <span class="bar-label" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+        <strong>${item.value}</strong>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderTable(rows) {
+  const tbody = $("tableBody");
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-table">Nenhum registro encontrado.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row => {
+    const inspection = row.inspection;
+    const action = row.action;
+
+    if (!action) {
+      const actions = inspection.actions || [];
+      return `
+        <tr>
+          <td><strong>${escapeHtml(inspection.title || "Inspeção")}</strong></td>
+          <td>${escapeHtml(inspection.location || "-")}</td>
+          <td>${escapeHtml(getInspectorName(inspection, action))}</td>
+          <td><span class="pill neutral">Inspeção</span></td>
+          <td>${actions.length}</td>
+          <td>-</td>
+          <td>-</td>
+          <td>${escapeHtml(inspection.id)}</td>
+        </tr>
+      `;
+    }
+
+    const statusLabel = isCompleted(action) ? "Concluída" : "Pendente";
+    const critical = isCritical(action);
+    const osDays = action.workOrderOpenDate ? daysSince(action.workOrderOpenDate) : null;
+
+    return `
+      <tr>
+        <td>
+          <strong>${escapeHtml(inspection.title || "Inspeção")}</strong>
+          <small>${escapeHtml(action.unsafeCondition || "Ação sem título")}</small>
+        </td>
+        <td>${escapeHtml(inspection.location || "-")}</td>
+        <td>${escapeHtml(getInspectorName(inspection, action))}</td>
+        <td><span class="pill ${isCompleted(action) ? "ok" : "warn"}">${statusLabel}</span></td>
+        <td>${daysSince(action.createdAt)} dias</td>
+        <td>${action.hasWorkOrder ? escapeHtml(action.workOrderNumber || "-") : "-"}</td>
+        <td>${osDays === null ? "-" : osDays + " dias"}</td>
+        <td><span class="pill ${critical ? "danger" : "neutral"}">${critical ? "Crítica" : "Normal"}</span></td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function setActiveButton() {
+  document.querySelectorAll("[data-view]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.view === activeView);
+  });
+}
+
+function setText(id, value) { $(id).textContent = value; }
+
+function normalize(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function isPending(action) { return String(action?.status || "").toUpperCase() === "PENDING"; }
+function isCompleted(action) { return String(action?.status || "").toUpperCase() === "COMPLETED"; }
+
+function isCritical(action) {
+  const pendingDays = daysSince(action?.createdAt);
+  const osDays = action?.workOrderOpenDate ? daysSince(action.workOrderOpenDate) : 0;
+  return pendingDays >= 8 || osDays >= 7;
+}
+
+function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value === "number") return value;
+  if (value.seconds) return value.seconds * 1000;
+  if (value.toDate) return value.toDate().getTime();
+  return Number(value) || 0;
+}
+
+function daysSince(value) {
+  const ms = toMillis(value);
+  if (!ms) return 0;
+  return Math.max(0, Math.floor((Date.now() - ms) / 86400000));
+}
+
+setActiveButton();
+</script>
+
+<style>
+:root {
+  --bg: #f3f6fb;
+  --surface: #ffffff;
+  --surface-2: #eef4fb;
+  --primary: #153b66;
+  --primary-2: #0b1f38;
+  --accent: #f5b400;
+  --text: #0b1f38;
+  --muted: #6b7a90;
+  --danger: #d32f2f;
+  --warning: #f9a825;
+  --ok: #1b8f4d;
+  --border: #dfe7f1;
+  --shadow: 0 18px 40px rgba(16, 38, 70, .10);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #071c35 0%, #0d3158 100%);
+}
+
+.login-box {
+  width: min(360px, 92vw);
+  background: #ffffff;
+  border-radius: 26px;
+  padding: 38px 32px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.28);
+  text-align: center;
+}
+
+.login-box h1 {
+  margin: 0 0 14px;
+  font-size: 32px;
+  line-height: 38px;
+  color: #0b2d52;
+  letter-spacing: -.4px;
+}
+
+.login-box p {
+  color: #667892;
+  font-size: 16px;
+  line-height: 24px;
+  margin: 0 0 32px;
+}
+
+.login-box input {
+  width: 100%;
+  height: 56px;
+  border-radius: 14px;
+  border: 1px solid #c8d5e3;
+  padding: 0 16px;
+  font-size: 16px;
+  outline: none;
+  background: #ffffff;
+  color: #0b2d52;
+}
+
+.login-box input:focus {
+  border-color: #123f6b;
+  box-shadow: 0 0 0 4px rgba(18,63,107,0.12);
+}
+
+.login-box button {
+  width: 100%;
+  height: 56px;
+  border: none;
+  border-radius: 14px;
+  background: #123f6b;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.login-box button:hover {
+  background: #0c2d50;
+}
+
+.error {
+  min-height: 22px;
+  color: var(--danger);
+  margin-top: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.app-screen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, #081a2f, #153b66);
+  color: white;
+  padding: 24px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.brand img {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+}
+
+.brand strong { display: block; font-size: 18px; }
+.brand span { color: rgba(255,255,255,.70); font-size: 12px; }
+
+.nav { display: grid; gap: 10px; }
+
+.nav button {
+  text-align: left;
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.82);
+}
+
+.nav button.active, .nav button:hover {
+  background: white;
+  color: var(--primary);
+}
+
+.user-box {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  border-top: 1px solid rgba(255,255,255,.20);
+  padding-top: 18px;
+}
+
+.user-box strong, .user-box span { display: block; }
+.user-box span { color: rgba(255,255,255,.70); font-size: 12px; }
+
+.main { padding: 28px; }
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.topbar h1 { margin: 0; font-size: 34px; letter-spacing: -.8px; }
+.topbar p { margin: 6px 0 0; color: var(--muted); }
+.logout { min-width: 110px; }
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.kpi small { color: var(--muted); font-weight: 700; }
+.kpi strong { display: block; margin-top: 10px; font-size: 34px; }
+
+.filters {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 18px;
+  margin: 18px 0;
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr 1fr;
+  gap: 12px;
+  box-shadow: var(--shadow);
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.panel h2 { margin: 0; font-size: 18px; }
+.panel p { margin: 4px 0 16px; color: var(--muted); font-size: 13px; }
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 34px;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.bar-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.bar-track {
+  height: 18px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #2d6ca3);
+  border-radius: 99px;
+}
+
+.empty { color: var(--muted); font-weight: 600; padding: 12px 0; }
+
+.table-panel { overflow: hidden; padding: 0; }
+.table-title { padding: 18px 18px 0; }
+.table-wrap { overflow: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+th, td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+th {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  background: #f8fbff;
+}
+
+td small { display: block; color: var(--muted); margin-top: 4px; }
+
+.pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pill.ok { color: var(--ok); background: rgba(27,143,77,.10); }
+.pill.warn { color: #9a6a00; background: rgba(249,168,37,.15); }
+.pill.danger { color: var(--danger); background: rgba(211,47,47,.12); }
+.pill.neutral { color: var(--primary); background: rgba(21,59,102,.10); }
+
+.empty-table {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px;
+}
+
+.footer {
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+}
+
+@media (max-width: 1100px) {
+  .app-screen { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; }
+  .user-box { position: static; margin-top: 20px; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .charts, .filters { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .main { padding: 16px; }
+  .kpis { grid-template-columns: 1fr; }
+  .topbar { align-items: flex-start; flex-direction: column; }
+  .logout { width: 100%; }
+}
+</style>
+</head>
+
+<body>
+  <section id="loginScreen" class="login-screen">
+    <div class="login-box">
+      <h1>Bem-vindo ao<br>Safety Gemba Walk</h1>
+      <p>Dashboard executivo de inspeções e ações de segurança.</p>
+
+      <input id="email" type="email" placeholder="E-mail" autocomplete="email" />
+      <br><br>
+      <input id="password" type="password" placeholder="Senha" autocomplete="current-password" />
+      <br><br>
+      <button id="loginBtn">Entrar</button>
+      <div id="loginError" class="error"></div>
+    </div>
+  </section>
+
+  <section id="appScreen" class="app-screen" style="display:none">
+    <aside class="sidebar">
+      <div class="brand">
+        <div>
+          <strong>Safety Gemba Walk</strong>
+          <span>Desenvolvido por Henrique Vieira</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button data-view="overview" class="active">Visão geral</button>
+        <button data-view="inspections">Inspeções</button>
+        <button data-view="pending">Pendências</button>
+        <button data-view="os">OS abertas</button>
+        <button data-view="critical">Críticas</button>
+      </nav>
+
+      <div class="user-box">
+        <strong id="userName">Usuário</strong>
+        <span id="userRole">Perfil</span>
+        <span id="syncStatus">Aguardando dados...</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>Dashboard Executivo</h1>
+          <p>Indicadores em tempo real conectados ao Firebase.</p>
+        </div>
+        <button id="logoutBtn" class="logout">Sair</button>
+      </div>
+
+      <section class="kpis">
+        <div class="kpi"><small>Inspeções</small><strong id="kpiInspections">0</strong></div>
+        <div class="kpi"><small>Ações</small><strong id="kpiActions">0</strong></div>
+        <div class="kpi"><small>Pendentes</small><strong id="kpiPending">0</strong></div>
+        <div class="kpi"><small>Concluídas</small><strong id="kpiCompleted">0</strong></div>
+        <div class="kpi"><small>OS abertas</small><strong id="kpiOs">0</strong></div>
+        <div class="kpi"><small>Críticas</small><strong id="kpiCritical">0</strong></div>
+      </section>
+
+      <section class="filters">
+        <input id="searchInput" type="text" placeholder="Buscar por área, inspetor, ação ou OS..." />
+        <select id="areaFilter"><option value="">Todas as áreas</option></select>
+        <select id="statusFilter">
+          <option value="">Todos os status</option>
+          <option value="PENDING">Pendentes</option>
+          <option value="COMPLETED">Concluídas</option>
+        </select>
+        <select id="criticalFilter">
+          <option value="">Todas criticidades</option>
+          <option value="critical">Somente críticas</option>
+        </select>
+      </section>
+
+      <section class="charts">
+        <div class="panel">
+          <h2>Ranking por área</h2>
+          <p>Áreas com mais ações pendentes.</p>
+          <div id="chartArea"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Idade das pendências</h2>
+          <p>Tempo em aberto das ações.</p>
+          <div id="chartAge"></div>
+        </div>
+
+        <div class="panel">
+          <h2>OS abertas por tempo</h2>
+          <p>Tempo de OS vinculadas às pendências.</p>
+          <div id="chartOs"></div>
+        </div>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="table-title">
+          <h2>Base operacional</h2>
+          <p>Registros filtrados conforme a visão selecionada.</p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Registro</th>
+                <th>Área</th>
+                <th>Inspetor</th>
+                <th>Status</th>
+                <th>Dias pendente</th>
+                <th>OS</th>
+                <th>Dias OS</th>
+                <th>Criticidade</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr><td colspan="8" class="empty-table">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="footer">
+        Safety Gemba Walk · Desenvolvido por Henrique Vieira
+      </div>
+    </main>
+  </section>
+</body>
+</html>
