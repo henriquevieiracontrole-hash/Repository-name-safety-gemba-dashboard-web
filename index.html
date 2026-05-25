@@ -29,6 +29,7 @@ let visibleInspections = [];
 let currentUserProfile = null;
 let unsubscribeInspections = null;
 let activeView = "overview";
+let currentRows = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -60,6 +61,8 @@ $("searchInput").addEventListener("input", render);
 $("areaFilter").addEventListener("change", render);
 $("statusFilter").addEventListener("change", render);
 $("criticalFilter").addEventListener("change", render);
+$("detailClose").addEventListener("click", closeDetailPanel);
+$("detailBackdrop").addEventListener("click", closeDetailPanel);
 
 async function login() {
   loginError.textContent = "";
@@ -363,14 +366,15 @@ function renderBarChart(id, items, emptyText) {
 }
 
 function renderTable(rows) {
+  currentRows = rows;
   const tbody = $("tableBody");
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-table">Nenhum registro encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-table">Nenhum registro encontrado.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = rows.map(row => {
+  tbody.innerHTML = rows.map((row, rowIndex) => {
     const inspection = row.inspection;
     const action = row.action;
 
@@ -386,6 +390,7 @@ function renderTable(rows) {
           <td>-</td>
           <td>-</td>
           <td>${escapeHtml(inspection.id)}</td>
+          <td><button class="detail-btn" onclick="openDetailPanel(${rowIndex})">Ver detalhes</button></td>
         </tr>
       `;
     }
@@ -407,10 +412,113 @@ function renderTable(rows) {
         <td>${action.hasWorkOrder ? escapeHtml(action.workOrderNumber || "-") : "-"}</td>
         <td>${osDays === null ? "-" : osDays + " dias"}</td>
         <td><span class="pill ${critical ? "danger" : "neutral"}">${critical ? "Crítica" : "Normal"}</span></td>
+        <td><button class="detail-btn" onclick="openDetailPanel(${rowIndex})">Ver detalhes</button></td>
       </tr>
     `;
   }).join("");
 }
+
+
+window.openDetailPanel = function(rowIndex) {
+  const row = currentRows[rowIndex];
+  if (!row) return;
+
+  const inspection = row.inspection;
+  const action = row.action;
+  const isInspection = !action;
+  const statusLabel = action
+    ? (isCompleted(action) ? "Concluída" : "Pendente")
+    : "Inspeção";
+
+  const critical = action ? isCritical(action) : false;
+  const osDays = action?.workOrderOpenDate ? daysSince(action.workOrderOpenDate) : null;
+
+  $("detailTitle").textContent = inspection.title || "Inspeção";
+  $("detailSubtitle").textContent = isInspection
+    ? `Inspeção #${inspection.id}`
+    : (action.unsafeCondition || "Ação sem título");
+
+  $("detailContent").innerHTML = `
+    <div class="detail-section">
+      <h3>Resumo</h3>
+      <div class="detail-grid">
+        <div><small>Área</small><strong>${escapeHtml(inspection.location || "-")}</strong></div>
+        <div><small>Inspetor</small><strong>${escapeHtml(getInspectorName(inspection, action))}</strong></div>
+        <div><small>Status</small><strong>${escapeHtml(statusLabel)}</strong></div>
+        <div><small>Criticidade</small><strong>${critical ? "Crítica" : "Normal"}</strong></div>
+        <div><small>Dias pendente</small><strong>${action ? daysSince(action.createdAt) + " dias" : "-"}</strong></div>
+        <div><small>OS</small><strong>${action?.hasWorkOrder ? escapeHtml(action.workOrderNumber || "-") : "-"}</strong></div>
+        <div><small>Dias OS</small><strong>${osDays === null ? "-" : osDays + " dias"}</strong></div>
+        <div><small>ID</small><strong>${escapeHtml(inspection.id)}</strong></div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Descrição</h3>
+      <p>${escapeHtml(action?.description || inspection.shortDescription || inspection.title || "-")}</p>
+    </div>
+
+    <div class="detail-section">
+      <h3>Ação imediata</h3>
+      <p>${escapeHtml(action?.immediateAction || "-")}</p>
+    </div>
+
+    <div class="detail-section">
+      <h3>Fotos</h3>
+      ${renderPhotoBlock(action)}
+    </div>
+
+    <div class="detail-section">
+      <h3>Relatório PDF</h3>
+      ${inspection.pdfUrl
+        ? `<a class="pdf-link" href="${escapeHtml(inspection.pdfUrl)}" target="_blank" rel="noopener">Abrir PDF executivo</a>`
+        : `<p class="muted-text">PDF ainda não disponível para esta inspeção.</p>`
+      }
+    </div>
+  `;
+
+  $("detailBackdrop").classList.add("show");
+  $("detailPanel").classList.add("show");
+};
+
+function closeDetailPanel() {
+  $("detailBackdrop").classList.remove("show");
+  $("detailPanel").classList.remove("show");
+}
+
+function renderPhotoBlock(action) {
+  if (!action) return `<p class="muted-text">Selecione uma ação para visualizar fotos.</p>`;
+
+  const before = action.beforePhotoUrl || action.beforePhotoDownloadUrl || action.beforeUrl || "";
+  const after = action.afterPhotoUrl || action.afterPhotoDownloadUrl || action.afterUrl || "";
+
+  const beforePath = action.beforePhotoPath || "";
+  const afterPath = action.afterPhotoPath || "";
+
+  if (!before && !after && !beforePath && !afterPath) {
+    return `<p class="muted-text">Sem fotos registradas.</p>`;
+  }
+
+  return `
+    <div class="photo-grid">
+      <div>
+        <small>Antes</small>
+        ${before
+          ? `<img src="${escapeHtml(before)}" alt="Foto antes">`
+          : `<p class="muted-text">${escapeHtml(beforePath || "Sem foto antes")}</p>`
+        }
+      </div>
+      <div>
+        <small>Depois</small>
+        ${after
+          ? `<img src="${escapeHtml(after)}" alt="Foto depois">`
+          : `<p class="muted-text">${escapeHtml(afterPath || "Sem foto depois")}</p>`
+        }
+      </div>
+    </div>
+  `;
+}
+
 
 function setActiveButton() {
   document.querySelectorAll("[data-view]").forEach((btn) => {
@@ -715,7 +823,7 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
+  min-width: 1120px;
 }
 
 th, td {
@@ -746,6 +854,158 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 .pill.warn { color: #9a6a00; background: rgba(249,168,37,.15); }
 .pill.danger { color: var(--danger); background: rgba(211,47,47,.12); }
 .pill.neutral { color: var(--primary); background: rgba(21,59,102,.10); }
+
+
+.detail-btn {
+  border: none;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.detail-btn:hover { background: var(--primary-2); }
+
+.detail-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 26, 47, .35);
+  opacity: 0;
+  pointer-events: none;
+  transition: .2s;
+  z-index: 20;
+}
+
+.detail-backdrop.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.detail-panel {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  bottom: 20px;
+  width: min(620px, 42vw);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 24px 70px rgba(8, 26, 47, .30);
+  transform: translateX(calc(100% + 40px));
+  transition: .25s;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-panel.show { transform: translateX(0); }
+
+.detail-header {
+  padding: 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.detail-header h2 { margin: 0; font-size: 22px; }
+.detail-header p { margin: 4px 0 0; color: var(--muted); }
+
+.detail-close {
+  border: none;
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.detail-content {
+  padding: 22px;
+  overflow: auto;
+}
+
+.detail-section {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
+  background: #fff;
+}
+
+.detail-section h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.detail-section p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.detail-grid div {
+  background: #f8fbff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.detail-grid small,
+.photo-grid small {
+  display: block;
+  color: var(--muted);
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.detail-grid strong {
+  display: block;
+  word-break: break-word;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.photo-grid img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
+.pdf-link {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 800;
+}
+
+.muted-text {
+  color: var(--muted) !important;
+  font-size: 13px;
+  word-break: break-word;
+}
+
 
 .empty-table {
   text-align: center;
@@ -886,10 +1146,11 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
                 <th>OS</th>
                 <th>Dias OS</th>
                 <th>Criticidade</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody id="tableBody">
-              <tr><td colspan="8" class="empty-table">Carregando...</td></tr>
+              <tr><td colspan="9" class="empty-table">Carregando...</td></tr>
             </tbody>
           </table>
         </div>
@@ -900,5 +1161,19 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
       </div>
     </main>
   </section>
+
+  <div id="detailBackdrop" class="detail-backdrop"></div>
+
+  <aside id="detailPanel" class="detail-panel">
+    <div class="detail-header">
+      <div>
+        <h2 id="detailTitle">Detalhes</h2>
+        <p id="detailSubtitle">Registro selecionado</p>
+      </div>
+      <button id="detailClose" class="detail-close">Fechar</button>
+    </div>
+    <div id="detailContent" class="detail-content"></div>
+  </aside>
+
 </body>
 </html>
