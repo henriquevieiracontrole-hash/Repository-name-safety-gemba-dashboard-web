@@ -438,17 +438,29 @@ window.openDetailPanel = function(rowIndex) {
     ? `Inspeção #${inspection.id}`
     : (action.unsafeCondition || "Ação sem título");
 
+  const statusClass = isCompleted(action) ? "ok" : "warn";
+  const criticalClass = critical ? "danger" : "neutral";
+  const createdAt = action?.createdAt || inspection.createdAt;
+  const updatedAt = action?.updatedAt || inspection.updatedAt;
+
   $("detailContent").innerHTML = `
-    <div class="detail-section">
-      <h3>Resumo</h3>
+    <div class="detail-hero">
+      <div>
+        <small>STATUS</small>
+        <span class="pill ${statusClass}">${escapeHtml(statusLabel)}</span>
+      </div>
+      <div>
+        <small>CRITICIDADE</small>
+        <span class="pill ${criticalClass}">${critical ? "Crítica" : "Normal"}</span>
+      </div>
+    </div>
+
+    <div class="detail-section premium">
+      <h3>Resumo executivo</h3>
       <div class="detail-grid">
         <div><small>Área</small><strong>${escapeHtml(inspection.location || "-")}</strong></div>
         <div><small>Inspetor</small><strong>${escapeHtml(getInspectorName(inspection, action))}</strong></div>
-        <div><small>Status</small><strong>${escapeHtml(statusLabel)}</strong></div>
-        <div><small>Criticidade</small><strong>${critical ? "Crítica" : "Normal"}</strong></div>
-        <div><small>Dias pendente</small><strong>${action ? daysSince(action.createdAt) + " dias" : "-"}</strong></div>
         <div><small>OS</small><strong>${action?.hasWorkOrder ? escapeHtml(action.workOrderNumber || "-") : "-"}</strong></div>
-        <div><small>Dias OS</small><strong>${osDays === null ? "-" : osDays + " dias"}</strong></div>
         <div><small>ID</small><strong>${escapeHtml(inspection.id)}</strong></div>
       </div>
     </div>
@@ -463,17 +475,32 @@ window.openDetailPanel = function(rowIndex) {
       <p>${escapeHtml(action?.immediateAction || "-")}</p>
     </div>
 
-    <div class="detail-section">
-      <h3>Fotos</h3>
+    <div class="detail-section photos-section">
+      <h3>Fotos Antes / Depois</h3>
       ${renderPhotoBlock(action)}
+    </div>
+
+    <div class="detail-section">
+      <h3>Linha do tempo</h3>
+      <div class="timeline">
+        <div><span></span><strong>Criação</strong><small>${formatDateTime(createdAt)}</small></div>
+        <div><span></span><strong>Atualização</strong><small>${formatDateTime(updatedAt)}</small></div>
+        <div><span></span><strong>Dias pendente</strong><small>${action ? daysSince(action.createdAt) + " dias" : "-"}</small></div>
+        <div><span></span><strong>Dias OS</strong><small>${osDays === null ? "-" : osDays + " dias"}</small></div>
+      </div>
     </div>
 
     <div class="detail-section">
       <h3>Relatório PDF</h3>
       ${inspection.pdfUrl
-        ? `<a class="pdf-link" href="${escapeHtml(inspection.pdfUrl)}" target="_blank" rel="noopener">Abrir PDF executivo</a>`
+        ? `<a class="pdf-link big" href="${escapeHtml(inspection.pdfUrl)}" target="_blank" rel="noopener">Abrir relatório PDF</a>`
         : `<p class="muted-text">PDF ainda não disponível para esta inspeção.</p>`
       }
+    </div>
+
+    <div class="detail-actions">
+      <button class="complete-btn" type="button">Concluir ação</button>
+      <button class="secondary-btn" type="button" onclick="closeDetailPanel()">Fechar</button>
     </div>
   `;
 
@@ -481,7 +508,7 @@ window.openDetailPanel = function(rowIndex) {
   $("detailPanel").classList.add("show");
 };
 
-function closeDetailPanel() {
+window.closeDetailPanel = function closeDetailPanel() {
   $("detailBackdrop").classList.remove("show");
   $("detailPanel").classList.remove("show");
 }
@@ -556,6 +583,18 @@ function toMillis(value) {
   if (value.seconds) return value.seconds * 1000;
   if (value.toDate) return value.toDate().getTime();
   return Number(value) || 0;
+}
+
+function formatDateTime(value) {
+  const ms = toMillis(value);
+  if (!ms) return "-";
+  return new Date(ms).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function daysSince(value) {
@@ -886,10 +925,10 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 
 .detail-panel {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  bottom: 20px;
-  width: min(620px, 42vw);
+  top: 18px;
+  right: 18px;
+  bottom: 18px;
+  width: min(760px, 46vw);
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 24px;
@@ -905,7 +944,8 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 .detail-panel.show { transform: translateX(0); }
 
 .detail-header {
-  padding: 22px;
+  padding: 24px;
+  background: linear-gradient(135deg, #f8fbff, #ffffff);
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -931,12 +971,37 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   overflow: auto;
 }
 
+.detail-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.detail-hero > div {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  background: #f8fbff;
+}
+
+.detail-hero small {
+  display: block;
+  color: var(--muted);
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
 .detail-section {
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 16px;
   margin-bottom: 14px;
   background: #fff;
+}
+
+.detail-section.premium {
+  border-left: 5px solid var(--primary);
 }
 
 .detail-section h3 {
@@ -984,10 +1049,43 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 
 .photo-grid img {
   width: 100%;
-  max-height: 220px;
+  max-height: 360px;
   object-fit: cover;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid var(--border);
+  box-shadow: 0 10px 24px rgba(16, 38, 70, .12);
+}
+
+.photos-section {
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline div {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  background: #f8fbff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.timeline span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.timeline small {
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .pdf-link {
@@ -998,6 +1096,38 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   border-radius: 12px;
   padding: 10px 14px;
   font-weight: 800;
+}
+
+.pdf-link.big {
+  width: 100%;
+  text-align: center;
+  padding: 14px 18px;
+  font-size: 15px;
+}
+
+.detail-actions {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 12px;
+  padding-bottom: 6px;
+}
+
+.complete-btn, .secondary-btn {
+  border: none;
+  border-radius: 14px;
+  padding: 13px 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.complete-btn {
+  background: var(--ok);
+  color: #fff;
+}
+
+.secondary-btn {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 .muted-text {
