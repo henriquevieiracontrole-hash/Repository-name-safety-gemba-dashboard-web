@@ -477,11 +477,6 @@ window.openDetailPanel = function(rowIndex) {
       <p>${escapeHtml(action?.immediateAction || "-")}</p>
     </div>
 
-    <div class="detail-section photos-section">
-      <h3>Fotos Antes / Depois</h3>
-      ${renderPhotoBlock(action)}
-    </div>
-
     <div class="detail-section">
       <h3>Linha do tempo</h3>
       <div class="timeline">
@@ -501,7 +496,6 @@ window.openDetailPanel = function(rowIndex) {
     </div>
 
     <div class="detail-actions">
-      <button class="complete-btn" type="button">Concluir ação</button>
       <button class="secondary-btn" type="button" onclick="closeDetailPanel()">Fechar</button>
     </div>
   `;
@@ -1108,8 +1102,8 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 }
 
 .detail-actions {
-  display: grid;
-  grid-template-columns: 1fr 120px;
+  display: flex;
+  justify-content: flex-end;
   gap: 12px;
   padding-bottom: 6px;
 }
