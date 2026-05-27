@@ -1,942 +1,1103 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Safety Gemba Walk — Dashboard Executivo</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Safety Gemba Walk | Centro de Controle</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
 <style>
-:root {
-  --bg: #f3f4f6;
-  --bg-card: #ffffff;
-  --bg-sidebar: #1e2a3a;
-  --bg-hover: #f1f5f9;
-  --border: #e2e8f0;
-  --text: #1e293b;
-  --text2: #64748b;
-  --text3: #94a3b8;
-  --text-sidebar: #cbd5e1;
-  --text-sidebar-muted: #64748b;
-  --primary: #0ea5a0;
-  --primary-bg: rgba(14,165,160,0.08);
-  --primary-light: #e6faf9;
-  --green: #10b981;
-  --green-bg: rgba(16,185,129,0.08);
-  --green-light: #ecfdf5;
-  --amber: #f59e0b;
-  --amber-bg: rgba(245,158,11,0.08);
-  --amber-light: #fffbeb;
-  --red: #ef4444;
-  --red-bg: rgba(239,68,68,0.08);
-  --red-light: #fef2f2;
-  --blue: #6366f1;
-  --blue-bg: rgba(99,102,241,0.08);
-  --blue-light: #eef2ff;
-  --purple: #8b5cf6;
-  --radius: 14px;
-  --radius-sm: 9px;
-  --trans: 0.2s cubic-bezier(0.4,0,0.2,1);
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
-  --shadow: 0 4px 6px rgba(0,0,0,0.03), 0 2px 12px rgba(0,0,0,0.05);
-  --shadow-lg: 0 10px 25px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.06);
-  --sidebar-w: 236px;
-  --topbar-h: 62px;
+:root{
+  --bg:#eef3f8;
+  --card:#ffffff;
+  --card2:#f8fbff;
+  --navy:#0b2341;
+  --navy2:#123a63;
+  --line:#d9e4ef;
+  --muted:#617085;
+  --text:#102033;
+  --orange:#f28c28;
+  --red:#d92d20;
+  --green:#168a4a;
+  --blue:#2563eb;
+  --shadow:0 12px 32px rgba(16,38,70,.10);
+  --radius:20px;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-html{font-size:14.5px;scroll-behavior:smooth}
+*{box-sizing:border-box}
 body{
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  background:var(--bg);color:var(--text);
-  min-height:100vh;display:flex;
-  -webkit-font-smoothing:antialiased;
-  line-height:1.5;
+  margin:0;
+  font-family:"Segoe UI",Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
 }
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-button{cursor:pointer;font-family:inherit;border:none;outline:none}
-a{color:var(--primary);text-decoration:none;font-weight:500}
-::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+button,input,select{font-family:inherit}
+.login-screen{
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,#06182d,#123a63);
+  padding:24px;
+}
+.login-box{
+  width:min(390px,94vw);
+  background:#fff;
+  border-radius:28px;
+  box-shadow:0 25px 70px rgba(0,0,0,.32);
+  padding:38px;
+  text-align:center;
+}
+.login-box h1{margin:0 0 8px;font-size:34px;color:var(--navy)}
+.login-box p{margin:0 0 28px;color:var(--muted);line-height:1.45}
+.login-box input{
+  width:100%;
+  height:54px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  padding:0 16px;
+  margin-bottom:12px;
+  font-size:15px;
+}
+.login-box button{
+  width:100%;
+  height:54px;
+  border:0;
+  border-radius:14px;
+  background:var(--navy2);
+  color:white;
+  font-weight:800;
+  cursor:pointer;
+}
+.error{color:var(--red);font-weight:700;min-height:22px;margin-top:12px}
 
-/* Sidebar */
+/* Layout */
+.app{
+  display:grid;
+  grid-template-columns:260px 1fr;
+  min-height:100vh;
+}
 .sidebar{
-  width:var(--sidebar-w);background:var(--bg-sidebar);
-  display:flex;flex-direction:column;
-  position:fixed;top:0;left:0;bottom:0;z-index:100;
-  overflow-y:auto;
+  background:linear-gradient(180deg,#071b33,#123a63);
+  color:#fff;
+  padding:22px;
+  position:sticky;
+  top:0;
+  height:100vh;
 }
-.sidebar-logo{
-  display:flex;align-items:center;gap:11px;
-  padding:0 20px;height:var(--topbar-h);
-  border-bottom:1px solid rgba(255,255,255,0.06);
+.brand{margin-bottom:26px}
+.brand strong{display:block;font-size:22px;line-height:1.15}
+.brand span{display:block;margin-top:7px;color:rgba(255,255,255,.68);font-size:12px}
+.nav-title{
+  margin:24px 0 10px;
+  color:rgba(255,255,255,.52);
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.9px;
+  font-weight:900;
 }
-.sidebar-logo-icon{
-  width:36px;height:36px;min-width:36px;
-  background:linear-gradient(135deg,var(--primary),#0891b2);
-  border-radius:10px;display:flex;align-items:center;justify-content:center;
-  font-size:17px;font-weight:700;color:#fff;
-  box-shadow:0 4px 12px rgba(14,165,160,0.3);
+.nav{display:grid;gap:10px}
+.nav button{
+  border:0;
+  border-radius:14px;
+  padding:13px 14px;
+  background:rgba(255,255,255,.09);
+  color:rgba(255,255,255,.86);
+  font-weight:800;
+  text-align:left;
+  cursor:pointer;
 }
-.sidebar-logo-text{font-size:1.05rem;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-0.01em}
-.sidebar-nav{flex:1;padding:8px;display:flex;flex-direction:column;gap:1px}
-.sidebar-label{
-  font-size:0.63rem;text-transform:uppercase;letter-spacing:0.09em;
-  color:var(--text-sidebar-muted);padding:16px 12px 6px;font-weight:600;
+.nav button.active,.nav button:hover{background:#fff;color:var(--navy)}
+.userbox{
+  position:absolute;
+  left:22px;
+  right:22px;
+  bottom:22px;
+  padding-top:16px;
+  border-top:1px solid rgba(255,255,255,.18);
+  font-size:12px;
+  color:rgba(255,255,255,.72);
 }
-.nav-item{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 12px;border-radius:var(--radius-sm);
-  color:var(--text-sidebar);font-size:0.86rem;font-weight:500;
-  transition:all var(--trans);background:none;width:100%;text-align:left;
-}
-.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff}
-.nav-item.active{
-  background:rgba(14,165,160,0.15);color:var(--primary);
-}
-.nav-item svg{width:18px;height:18px;min-width:18px;opacity:0.6}
-.nav-item.active svg{opacity:1}
-.nav-item .badge{
-  margin-left:auto;background:var(--primary);color:#fff;
-  font-size:0.63rem;padding:2px 7px;border-radius:10px;font-weight:600;min-width:20px;text-align:center;
-}
+.userbox strong{display:block;color:#fff;font-size:14px;margin-bottom:4px}
 
-/* Main */
-.main{margin-left:var(--sidebar-w);flex:1;min-width:0;display:flex;flex-direction:column}
+.main{padding:24px}
 .topbar{
-  height:var(--topbar-h);background:var(--bg-card);
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 28px;position:sticky;top:0;z-index:50;
-  box-shadow:var(--shadow-sm);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  margin-bottom:20px;
 }
-.topbar-left{display:flex;align-items:center;gap:14px}
-.topbar-title{font-size:1.05rem;font-weight:600;color:var(--text);letter-spacing:-0.01em}
-.topbar-right{display:flex;align-items:center;gap:12px}
-.topbar-avatar{
-  width:34px;height:34px;border-radius:50%;
-  background:linear-gradient(135deg,var(--primary),#0891b2);
-  display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:0.78rem;color:#fff;
+.title h1{margin:0;font-size:36px;color:var(--navy);letter-spacing:-.8px}
+.title p{margin:6px 0 0;color:var(--muted)}
+.actions{display:flex;gap:10px}
+.btn{
+  border:0;
+  border-radius:13px;
+  padding:12px 16px;
+  font-weight:900;
+  cursor:pointer;
 }
-.topbar-conn{
-  width:8px;height:8px;border-radius:50%;
-  background:var(--text3);
-}
-.topbar-conn.on{background:var(--green);box-shadow:0 0 6px rgba(16,185,129,0.5)}
+.btn.primary{background:var(--navy2);color:#fff}
+.btn.light{background:#fff;color:var(--navy2);border:1px solid var(--line)}
+.btn.orange{background:var(--orange);color:#231400}
 
-/* Page content */
-.page-content{padding:26px 28px;flex:1;overflow-y:auto}
-.page{display:none;animation:fadeIn 0.25s ease}
-.page.active{display:block}
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+/* KPIs */
+.kpis{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(150px,1fr));
+  gap:14px;
+  margin-bottom:18px;
+}
+.kpi{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:18px;
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  text-align:left;
+  transition:.16s;
+}
+.kpi:hover,.kpi.active{transform:translateY(-3px);border-color:var(--orange)}
+.kpi small{color:var(--muted);font-weight:900}
+.kpi strong{display:block;margin-top:10px;font-size:38px;color:var(--navy)}
+.kpi span{display:block;margin-top:4px;color:var(--muted);font-size:12px}
 
-/* Stat cards */
-.stats-grid{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));
-  gap:16px;margin-bottom:26px;
+/* Panels */
+.panel{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:20px;
+  box-shadow:var(--shadow);
+  padding:18px;
+  margin-bottom:18px;
 }
-.stat-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:20px 22px;
-  transition:all var(--trans);
-  box-shadow:var(--shadow-sm);
+.panel h2{margin:0 0 6px;font-size:20px;color:var(--navy)}
+.panel p{margin:0 0 14px;color:var(--muted)}
+.summary{
+  background:linear-gradient(135deg,#fff,#f8fbff);
+  border-left:6px solid var(--orange);
 }
-.stat-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
-.stat-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
-.stat-card-label{font-size:0.75rem;color:var(--text3);font-weight:500;letter-spacing:0.01em}
-.stat-card-icon{
-  width:38px;height:38px;border-radius:var(--radius-sm);
-  display:flex;align-items:center;justify-content:center;font-size:0;
+.filters{
+  display:grid;
+  grid-template-columns:1.7fr 1fr 1fr 1fr;
+  gap:10px;
 }
-.stat-card-icon.teal{background:var(--primary-light);color:var(--primary)}
-.stat-card-icon.green{background:var(--green-light);color:var(--green)}
-.stat-card-icon.amber{background:var(--amber-light);color:var(--amber)}
-.stat-card-icon.red{background:var(--red-light);color:var(--red)}
-.stat-card-icon svg{width:19px;height:19px}
-.stat-card-value{font-size:1.85rem;font-weight:700;margin-bottom:2px;color:var(--text);letter-spacing:-0.02em}
-.stat-card-sub{font-size:0.78rem;color:var(--text2)}
-
-/* Charts */
-.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px}
-@media(max-width:960px){.charts-grid{grid-template-columns:1fr}}
-.chart-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:20px 22px;
-  box-shadow:var(--shadow-sm);
+.filters input,.filters select{
+  height:48px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  padding:0 14px;
+  background:#fff;
 }
-.chart-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.chart-card-title{font-weight:600;font-size:0.88rem;color:var(--text)}
-.chart-card-badge{font-size:0.68rem;padding:3px 9px;border-radius:var(--radius-sm);background:var(--bg);color:var(--text2);font-weight:500}
-.chart-wrap{position:relative;width:100%}
-.chart-wrap canvas{width:100%!important}
+.charts{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:14px;
+}
+.chartbox{
+  min-height:305px;
+}
+.chartbox canvas{
+  max-height:245px !important;
+}
 
 /* Tables */
-.table-card{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);overflow:hidden;margin-bottom:24px;
-  box-shadow:var(--shadow-sm);
+.table-wrap{overflow:auto}
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:980px;
 }
-.table-header{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:14px 20px;border-bottom:1px solid var(--border);
+th,td{
+  padding:13px 14px;
+  border-bottom:1px solid var(--line);
+  text-align:left;
+  vertical-align:top;
+  font-size:14px;
 }
-.table-title{font-weight:600;font-size:0.88rem;color:var(--text)}
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse}
-thead{background:var(--bg)}
 th{
-  padding:11px 16px;text-align:left;
-  font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;
-  color:var(--text3);font-weight:600;white-space:nowrap;
+  background:#f7fafd;
+  color:var(--muted);
+  text-transform:uppercase;
+  font-size:11px;
+  letter-spacing:.04em;
 }
-td{padding:11px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;color:var(--text)}
-tbody tr{transition:background var(--trans)}
-tbody tr:hover{background:var(--bg-hover)}
-tbody tr.clickable{cursor:pointer}
-tbody tr:last-child td{border-bottom:none}
-.cell-id{font-family:'SF Mono','JetBrains Mono','Fira Code',monospace;font-size:0.73rem;color:var(--primary);font-weight:500;opacity:0.8}
-
-/* Status pills */
-.status-pill{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;
+tbody tr:hover{background:#f8fbff}
+td small{display:block;color:var(--muted);margin-top:4px}
+.code{font-weight:900;color:var(--navy)}
+.pill{
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:5px 10px;
+  font-size:12px;
+  font-weight:900;
+}
+.pill.pending{background:#fff4dc;color:#8a5400}
+.pill.ok{background:#e7f7ee;color:var(--green)}
+.pill.critical{background:#ffe9e7;color:var(--red)}
+.pill.neutral{background:#edf3fb;color:var(--navy2)}
+.detail-btn{
+  border:0;
+  background:var(--navy2);
+  color:#fff;
+  border-radius:10px;
+  padding:9px 12px;
+  font-weight:900;
+  cursor:pointer;
   white-space:nowrap;
 }
-.status-pill .sdot{width:6px;height:6px;border-radius:50%}
-.status-pill.open{background:var(--green-light);color:var(--green)} .status-pill.open .sdot{background:var(--green)}
-.status-pill.pending{background:var(--amber-light);color:var(--amber)} .status-pill.pending .sdot{background:var(--amber)}
-.status-pill.closed{background:var(--blue-light);color:var(--blue)} .status-pill.closed .sdot{background:var(--blue)}
-.status-pill.critical{background:var(--red-light);color:var(--red)} .status-pill.critical .sdot{background:var(--red)}
-.status-pill.overdue{background:var(--red-light);color:var(--red)} .status-pill.overdue .sdot{background:var(--red)}
-
-/* Buttons */
-.btn{
-  padding:7px 14px;border-radius:var(--radius-sm);
-  font-size:0.78rem;font-weight:500;transition:all var(--trans);
-  display:inline-flex;align-items:center;gap:6px;
-}
-.btn-primary{background:var(--primary);color:#fff}
-.btn-primary:hover{background:#0d9488;box-shadow:0 4px 12px rgba(14,165,160,0.3)}
-.btn-outline{background:var(--bg-card);border:1px solid var(--border);color:var(--text2)}
-.btn-outline:hover{background:var(--bg);color:var(--text)}
-.btn-sm{padding:5px 10px;font-size:0.7rem}
-.btn svg{width:14px;height:14px}
+.empty{padding:32px;text-align:center;color:var(--muted)}
 
 /* Modal */
-.modal-overlay{
-  position:fixed;inset:0;background:rgba(15,23,42,0.45);
-  backdrop-filter:blur(4px);z-index:200;
-  display:flex;align-items:center;justify-content:center;
-  opacity:0;visibility:hidden;transition:all 0.25s;
+.backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(8,26,47,.38);
+  opacity:0;
+  pointer-events:none;
+  transition:.18s;
+  z-index:20;
 }
-.modal-overlay.open{opacity:1;visibility:visible}
-.modal{
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);width:92%;max-width:700px;
-  max-height:85vh;overflow-y:auto;
-  transform:translateY(12px) scale(0.98);
-  transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
-  box-shadow:0 20px 60px rgba(0,0,0,0.12);
+.backdrop.show{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;
+  top:16px;
+  right:16px;
+  bottom:16px;
+  width:min(720px,48vw);
+  background:#fff;
+  border-radius:24px;
+  box-shadow:0 30px 80px rgba(8,26,47,.35);
+  transform:translateX(calc(100% + 40px));
+  transition:.24s;
+  z-index:30;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
 }
-.modal-overlay.open .modal{transform:translateY(0) scale(1)}
-.modal-header{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:18px 22px;border-bottom:1px solid var(--border);
-  position:sticky;top:0;background:var(--bg-card);z-index:1;
-  border-radius:var(--radius) var(--radius) 0 0;
+.drawer.show{transform:translateX(0)}
+.drawer-head{
+  padding:22px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  background:linear-gradient(135deg,#fff,#f6f9fd);
 }
-.modal-title{font-size:1.05rem;font-weight:600;color:var(--text)}
-.modal-close{
-  width:30px;height:30px;border-radius:50%;background:var(--bg);
-  color:var(--text2);display:flex;align-items:center;justify-content:center;
-  transition:all var(--trans);font-size:1.1rem;
+.drawer-head h2{margin:0;color:var(--navy)}
+.drawer-head p{margin:4px 0 0;color:var(--muted)}
+.close{
+  border:0;
+  border-radius:12px;
+  padding:9px 12px;
+  background:#edf3fb;
+  font-weight:900;
 }
-.modal-close:hover{background:var(--border);color:var(--text)}
-.modal-body{padding:22px}
-.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
-
-.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.detail-grid .full{grid-column:1/-1}
-.detail-label{font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px;font-weight:500}
-.detail-value{font-size:0.9rem;font-weight:500;color:var(--text)}
-
-/* Actions sub-table */
-.action-list{margin-top:18px}
+.drawer-body{padding:20px;overflow:auto}
+.info-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-bottom:14px;
+}
+.info{
+  background:#f8fbff;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+}
+.info small{display:block;color:var(--muted);font-weight:900;margin-bottom:5px}
+.section{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+  margin-bottom:12px;
+}
+.section h3{margin:0 0 10px;color:var(--navy)}
 .action-item{
-  background:var(--bg);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:13px 16px;margin-bottom:9px;
+  background:#f8fbff;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+  margin-bottom:10px;
 }
-.action-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.action-cond{font-weight:600;font-size:0.85rem;color:var(--text)}
-.action-desc{color:var(--text2);font-size:0.8rem;line-height:1.55}
-.action-meta{display:flex;gap:14px;margin-top:6px;font-size:0.73rem;color:var(--text3)}
-
-/* Empty / loading */
-.empty-state{text-align:center;padding:44px 20px;color:var(--text3)}
-.empty-state svg{width:44px;height:44px;margin-bottom:12px;opacity:0.25}
-.empty-state p{font-size:0.85rem}
-
-/* Toast */
-.toast{
-  position:fixed;bottom:22px;right:22px;z-index:300;
-  background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:13px 20px;
-  font-size:0.83rem;font-weight:500;color:var(--text);
-  box-shadow:0 12px 40px rgba(0,0,0,0.1);
-  transform:translateY(100px);opacity:0;
-  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+.pdf-link{
+  display:block;
+  width:100%;
+  text-align:center;
+  background:var(--navy2);
+  color:#fff;
+  padding:14px;
+  border-radius:13px;
+  font-weight:900;
+  text-decoration:none;
 }
-.toast.show{transform:translateY(0);opacity:1}
-.toast.ok{border-color:var(--green)}
-.toast.err{border-color:var(--red)}
-
-/* Report */
-.report-section{margin-bottom:22px}
-.report-section h3{font-size:0.95rem;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);color:var(--text)}
-.report-row{display:flex;justify-content:space-between;padding:7px 0;font-size:0.85rem;color:var(--text2)}
-.report-row .val{font-weight:600;color:var(--text)}
 
 /* Print */
+#printReport{display:none}
+.footer{
+  text-align:center;
+  margin:20px 0 0;
+  color:var(--muted);
+  font-size:12px;
+}
+.footer strong{color:var(--navy2)}
 @media print{
-  .sidebar,.topbar,.btn,.modal-overlay{display:none!important}
-  .main{margin-left:0!important}
-  .page-content{padding:0!important}
-  .stat-card,.chart-card,.table-card{box-shadow:none!important;border:1px solid #ddd!important;break-inside:avoid}
-  body{background:#fff!important}
+  body *{visibility:hidden}
+  #printReport,#printReport *{visibility:visible}
+  #printReport{display:block;position:absolute;inset:0;background:#fff;color:#102033;padding:28px}
+  .print-cover{
+    min-height:170px;
+    background:linear-gradient(135deg,#fff 0 73%,#f1f1f1 73%);
+    border-bottom:1px solid #ddd;
+    padding:28px;
+  }
+  .print-cover h1{margin:0;color:#0b2341;font-size:34px}
+  .print-cover h2{margin:8px 0;color:#d92d20}
+  .print-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:20px 0}
+  .print-kpis div{border:1px solid #ddd;background:#f8f8f8;padding:10px}
+  .print-kpis small{display:block;color:#6b2c7b;font-weight:900}
+  .print-kpis strong{display:block;font-size:26px}
+  .print-table{width:100%;border-collapse:collapse;font-size:12px}
+  .print-table th,.print-table td{border:1px solid #ddd;padding:7px}
 }
-
-/* Responsive */
-@media(max-width:768px){
-  .sidebar{display:none}
-  .main{margin-left:0}
-  .stats-grid{grid-template-columns:1fr 1fr}
-  .page-content{padding:14px}
+@media(max-width:1200px){
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .charts{grid-template-columns:1fr}
 }
-@media(max-width:480px){
-  .stats-grid{grid-template-columns:1fr}
-  .detail-grid{grid-template-columns:1fr}
+@media(max-width:780px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:relative;height:auto}
+  .userbox{position:static;margin-top:20px}
+  .main{padding:16px}
+  .kpis,.filters{grid-template-columns:1fr}
+  .drawer{width:calc(100vw - 24px);right:12px;top:12px;bottom:12px}
 }
 </style>
 </head>
-<body>
 
-<!-- Sidebar -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-logo">
-    <div class="sidebar-logo-icon">&#9888;</div>
-    <span class="sidebar-logo-text">Gemba Walk</span>
+<body>
+<section id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <h1>Safety Gemba Walk</h1>
+    <p>Centro de controle operacional de inspeções e ações corretivas.</p>
+    <input id="email" type="email" placeholder="E-mail" autocomplete="email" />
+    <input id="password" type="password" placeholder="Senha" autocomplete="current-password" />
+    <button id="loginBtn">Entrar</button>
+    <div id="loginError" class="error"></div>
   </div>
-  <nav class="sidebar-nav">
-    <span class="sidebar-label">Navegação</span>
-    <button class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      <span>Dashboard</span>
-    </button>
-    <button class="nav-item" data-page="pendentes" onclick="goPage('pendentes')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <span>Pendências</span>
-      <span class="badge" id="badge-pending">0</span>
-    </button>
-    <button class="nav-item" data-page="os" onclick="goPage('os')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      <span>OS Abertas</span>
-      <span class="badge" id="badge-os">0</span>
-    </button>
-    <button class="nav-item" data-page="criticas" onclick="goPage('criticas')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      <span>Críticas</span>
-      <span class="badge" id="badge-critical">0</span>
-    </button>
-    <span class="sidebar-label">Relatórios</span>
-    <button class="nav-item" data-page="relatorio" onclick="goPage('relatorio')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      <span>Gerar Relatório</span>
-    </button>
-  </nav>
+</section>
+
+<section id="appScreen" class="app" style="display:none">
+  <aside class="sidebar">
+    <div class="brand">
+      <strong>Safety Gemba Walk</strong>
+      <span>Centro de Controle Operacional</span>
+    </div>
+
+    <div class="nav-title">Navegação</div>
+    <nav class="nav">
+      <button data-view="dashboard" class="active">Dashboard</button>
+      <button data-view="inspections">Inspeções</button>
+      <button data-view="actions">Ações</button>
+      <button data-view="pending">Pendências</button>
+      <button data-view="os">OS abertas</button>
+      <button data-view="critical">Críticas</button>
+    </nav>
+
+    <div class="nav-title">Relatórios</div>
+    <nav class="nav">
+      <button id="btnReport" type="button">Gerar relatório geral</button>
+      <button id="btnRefresh" type="button">Atualizar indicadores</button>
+    </nav>
+
+    <div class="userbox">
+      <strong id="userName">Usuário</strong>
+      <span id="userRole">Perfil</span>
+      <span id="syncStatus">Aguardando dados...</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="title">
+        <h1>Centro de Controle Operacional</h1>
+        <p>Monitoramento em tempo real das inspeções Safety Gemba Walk</p>
+      </div>
+      <div class="actions">
+        <button id="logoutBtn" class="btn primary">Sair</button>
+      </div>
+    </div>
+
+    <section class="kpis">
+      <button class="kpi" data-view="inspections"><small>Inspeções</small><strong id="kpiInspections">0</strong><span>listar inspeções</span></button>
+      <button class="kpi" data-view="actions"><small>Ações</small><strong id="kpiActions">0</strong><span>listar ações</span></button>
+      <button class="kpi" data-view="pending"><small>Pendentes</small><strong id="kpiPending">0</strong><span>ações em aberto</span></button>
+      <button class="kpi" data-view="os"><small>OS abertas</small><strong id="kpiOs">0</strong><span>controle de manutenção</span></button>
+      <button class="kpi" data-view="critical"><small>Críticas</small><strong id="kpiCritical">0</strong><span>prioridade alta</span></button>
+      <button class="kpi" data-view="dashboard"><small>Conclusão</small><strong id="kpiRate">0%</strong><span>performance geral</span></button>
+    </section>
+
+    <section class="panel summary">
+      <h2>Resumo executivo</h2>
+      <p>Dados integrados ao Firebase em tempo real. Use os cards para abrir listas operacionais e o botão lateral para emitir relatório geral.</p>
+    </section>
+
+    <section class="panel">
+      <div class="filters">
+        <input id="searchInput" type="text" placeholder="Buscar por inspeção, área, inspetor, risco ou OS..." />
+        <select id="areaFilter"><option value="">Todas as áreas</option></select>
+        <select id="statusFilter">
+          <option value="">Todos os status</option>
+          <option value="PENDING">Pendentes</option>
+          <option value="COMPLETED">Concluídas</option>
+          <option value="IN_PROGRESS">Em andamento</option>
+        </select>
+        <select id="criticalFilter">
+          <option value="">Todas criticidades</option>
+          <option value="critical">Somente críticas</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="panel chartbox">
+        <h2>Status das ações</h2>
+        <p>Composição geral por situação.</p>
+        <canvas id="statusChart"></canvas>
+      </div>
+      <div class="panel chartbox">
+        <h2>Pendências por área</h2>
+        <p>Locais com maior volume de ações abertas.</p>
+        <canvas id="areaChart"></canvas>
+      </div>
+      <div class="panel chartbox">
+        <h2>OS por tempo</h2>
+        <p>Idade das ordens de serviço vinculadas.</p>
+        <canvas id="osChart"></canvas>
+      </div>
+    </section>
+
+    <section id="operationalSection" class="panel" style="display:none">
+      <h2 id="tableTitle">Base operacional</h2>
+      <p id="tableSubtitle">Registros conforme seleção atual.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Registro</th>
+              <th>Área</th>
+              <th>Inspetor</th>
+              <th>Status</th>
+              <th>Dias</th>
+              <th>OS</th>
+              <th>Criticidade</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="8" class="empty">Clique em um card para listar registros.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="dashboardPreview" class="panel">
+      <h2>Top críticas e OS abertas</h2>
+      <p>Visão rápida para acompanhamento gerencial.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Registro</th>
+              <th>Área</th>
+              <th>Inspetor</th>
+              <th>Risco identificado</th>
+              <th>OS</th>
+              <th>Dias</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody">
+            <tr><td colspan="7" class="empty">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="footer">
+      Safety Gemba Walk © Plataforma Corporativa de Segurança<br>
+      <strong>Desenvolvido por Henrique Vieira</strong>
+    </div>
+  </main>
+</section>
+
+<div id="backdrop" class="backdrop"></div>
+<aside id="drawer" class="drawer">
+  <div class="drawer-head">
+    <div>
+      <h2 id="drawerTitle">Detalhes</h2>
+      <p id="drawerSubtitle">Registro selecionado</p>
+    </div>
+    <button id="drawerClose" class="close">Fechar</button>
+  </div>
+  <div id="drawerBody" class="drawer-body"></div>
 </aside>
 
-<!-- Main -->
-<main class="main">
-  <header class="topbar">
-    <div class="topbar-left">
-      <span class="topbar-title" id="topbar-title">Dashboard de Inspeções</span>
-    </div>
-    <div class="topbar-right">
-      <span style="font-size:0.76rem;color:var(--text2);font-weight:500" id="connLabel">Offline</span>
-      <span class="topbar-conn" id="connDot" title="Status do Firestore"></span>
-      <div class="topbar-avatar">SG</div>
-    </div>
-  </header>
+<div id="printReport"></div>
 
-  <div class="page-content">
-    <!-- Dashboard -->
-    <div class="page active" id="page-dashboard">
-      <div class="stats-grid" id="statsGrid">
-        <div class="stat-card">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Total de Inspeções</span>
-            <span class="stat-card-icon teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>
-          </div>
-          <div class="stat-card-value" id="statTotal">0</div>
-          <div class="stat-card-sub">inspeções registradas</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Ações em Aberto</span>
-            <span class="stat-card-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-          </div>
-          <div class="stat-card-value" id="statOpen">0</div>
-          <div class="stat-card-sub">ações pendentes</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-header">
-            <span class="stat-card-label">Condições Críticas</span>
-            <span class="stat-card-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
-          </div>
-          <div class="stat-card-value" id="statCritical">0</div>
-          <div class="stat-card-sub">ações críticas</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-header">
-            <span class="stat-card-label">OS Abertas</span>
-            <span class="stat-card-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
-          </div>
-          <div class="stat-card-value" id="statWO">0</div>
-          <div class="stat-card-sub">ordens de serviço</div>
-        </div>
-      </div>
-
-      <div class="charts-grid">
-        <div class="chart-card">
-          <div class="chart-card-header">
-            <span class="chart-card-title">Inspeções por Status</span>
-            <span class="chart-card-badge">Atual</span>
-          </div>
-          <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-card-header">
-            <span class="chart-card-title">Inspeções por Local</span>
-            <span class="chart-card-badge">Top 8</span>
-          </div>
-          <div class="chart-wrap"><canvas id="locationChart"></canvas></div>
-        </div>
-      </div>
-
-      <div class="table-card">
-        <div class="table-header">
-          <span class="table-title">&Uacute;ltimas Inspe&ccedil;&otilde;es</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-outline btn-sm" onclick="refreshAll()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
-              Atualizar
-            </button>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>ID</th><th>T&iacute;tulo</th><th>Local</th><th>Inspetor</th><th>Status</th><th>Data</th></tr></thead>
-            <tbody id="inspectionsTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma inspe&ccedil;&atilde;o encontrada</p></div></td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pend&ecirc;ncias -->
-    <div class="page" id="page-pendentes">
-      <div class="table-card">
-        <div class="table-header">
-          <span class="table-title">A&ccedil;&otilde;es Pendentes</span>
-          <span style="font-size:0.8rem;color:var(--text3);font-weight:500" id="pendingCount">0 a&ccedil;&otilde;es</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Inspe&ccedil;&atilde;o</th><th>Condi&ccedil;&atilde;o Insegura</th><th>A&ccedil;&atilde;o Imediata</th><th>OS?</th><th>Status</th><th>Data</th></tr></thead>
-            <tbody id="pendingTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma a&ccedil;&atilde;o pendente</p></div></td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- OS Abertas -->
-    <div class="page" id="page-os">
-      <div class="table-card">
-        <div class="table-header">
-          <span class="table-title">Ordens de Servi&ccedil;o Abertas</span>
-          <span style="font-size:0.8rem;color:var(--text3);font-weight:500" id="osCount">0 OS</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>OS N&ordm;</th><th>Condi&ccedil;&atilde;o</th><th>Inspe&ccedil;&atilde;o</th><th>Local</th><th>Abertura</th><th>Status</th></tr></thead>
-            <tbody id="osTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma OS aberta</p></div></td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Cr&iacute;ticas -->
-    <div class="page" id="page-criticas">
-      <div class="table-card">
-        <div class="table-header">
-          <span class="table-title">Condi&ccedil;&otilde;es Cr&iacute;ticas</span>
-          <span style="font-size:0.8rem;color:var(--text3);font-weight:500" id="criticalCount">0 cr&iacute;ticas</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Inspe&ccedil;&atilde;o</th><th>Local</th><th>Condi&ccedil;&atilde;o Insegura</th><th>Descri&ccedil;&atilde;o</th><th>A&ccedil;&atilde;o Imediata</th><th>Status</th></tr></thead>
-            <tbody id="criticalTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma condi&ccedil;&atilde;o cr&iacute;tica</p></div></td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Relat&oacute;rio -->
-    <div class="page" id="page-relatorio">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px">
-        <h2 style="font-size:1.15rem;font-weight:600;color:var(--text);letter-spacing:-0.01em">Relat&oacute;rio Geral de Seguran&ccedil;a</h2>
-        <button class="btn btn-primary" onclick="printReport()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 12H4a2 2 0 00-2 2v5a2 2 0 002 2h16a2 2 0 002-2v-5a2 2 0 00-2-2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          Imprimir
-        </button>
-      </div>
-      <div id="reportContent">
-        <div class="report-section">
-          <h3>Resumo</h3>
-          <div class="report-row"><span>Total de Inspe&ccedil;&otilde;es</span><span class="val" id="rptTotal">0</span></div>
-          <div class="report-row"><span>A&ccedil;&otilde;es Totais Registradas</span><span class="val" id="rptActions">0</span></div>
-          <div class="report-row"><span>A&ccedil;&otilde;es Pendentes</span><span class="val" id="rptPending">0</span></div>
-          <div class="report-row"><span>Ordens de Servi&ccedil;o Abertas</span><span class="val" id="rptWO">0</span></div>
-          <div class="report-row"><span>Condi&ccedil;&otilde;es Cr&iacute;ticas</span><span class="val" id="rptCritical">0</span></div>
-        </div>
-        <div class="report-section">
-          <h3>Inspe&ccedil;&otilde;es por Status</h3>
-          <div id="rptStatuses"></div>
-        </div>
-        <div class="report-section">
-          <h3>Locais Inspecionados</h3>
-          <div id="rptLocations"></div>
-        </div>
-        <div class="report-section">
-          <h3>Inspetores</h3>
-          <div id="rptInspectors"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</main>
-
-<!-- Modal de Detalhes -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-  <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <span class="modal-title" id="modalTitle">Detalhes da Inspe&ccedil;&atilde;o</span>
-      <button class="modal-close" onclick="closeModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="detail-grid" id="modalGrid"></div>
-      <div class="action-list" id="modalActions"><h4 style="margin-bottom:10px;font-size:0.9rem;color:var(--text)">A&ccedil;&otilde;es Registradas</h4></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline btn-sm" id="modalPdfBtn" style="display:none" onclick="openPdf()">&#128196; Abrir PDF</button>
-      <button class="btn btn-outline btn-sm" onclick="closeModal()">Fechar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-<!-- ============================================================
-     Firebase + L&oacute;gica da Aplica&ccedil;&atilde;o
-     ============================================================ -->
 <script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
-import { getFirestore, collection, getDocs, query, orderBy } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, getDocs, onSnapshot, query, where, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ── State ──
-let db = null;
-let ready = false;
-let inspections = [];
-const charts = {};
+const firebaseConfig = {
+  apiKey: "AIzaSyBNnfn-evmqfiVxJA_a8Qfl_PO0_Z_QkK4",
+  authDomain: "safetygembawalk.firebaseapp.com",
+  projectId: "safetygembawalk",
+  storageBucket: "safetygembawalk.firebasestorage.app",
+  messagingSenderId: "903981059784",
+  appId: "1:903981059784:web:fd9770f007ada80b981ffd",
+  measurementId: "G-MP18X051F5"
+};
 
-// ── Config ──
-function cfg() {
-  try { return JSON.parse(localStorage.getItem('gemba_fb') || 'null'); } catch(e){ return null; }
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let allInspections = [];
+let visibleInspections = [];
+let currentUserProfile = null;
+let unsubscribeInspections = null;
+let activeView = "dashboard";
+let currentRows = [];
+let charts = {};
+
+const $ = (id) => document.getElementById(id);
+
+window.addEventListener("DOMContentLoaded", () => {
+  $("loginBtn").addEventListener("click", login);
+  $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+  $("logoutBtn").addEventListener("click", async () => {
+    if (unsubscribeInspections) unsubscribeInspections();
+    await signOut(auth);
+  });
+
+  document.querySelectorAll("[data-view]").forEach(el => {
+    el.addEventListener("click", () => setView(el.dataset.view));
+  });
+
+  $("searchInput").addEventListener("input", render);
+  $("areaFilter").addEventListener("change", render);
+  $("statusFilter").addEventListener("change", render);
+  $("criticalFilter").addEventListener("change", render);
+  $("btnRefresh").addEventListener("click", render);
+  $("btnReport").addEventListener("click", generateReport);
+  $("drawerClose").addEventListener("click", closeDrawer);
+  $("backdrop").addEventListener("click", closeDrawer);
+});
+
+async function login(){
+  $("loginError").textContent = "";
+  $("loginBtn").disabled = true;
+  $("loginBtn").textContent = "Entrando...";
+  try{
+    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
+  }catch(e){
+    $("loginError").textContent = "Usuário ou senha inválidos.";
+  }finally{
+    $("loginBtn").disabled = false;
+    $("loginBtn").textContent = "Entrar";
+  }
 }
-function saveCfg(c) { localStorage.setItem('gemba_fb', JSON.stringify(c)); }
 
-function connect() {
-  const c = cfg();
-  if (!c || !c.apiKey || !c.projectId) {
-    setConn(false, 'Sem config');
+onAuthStateChanged(auth, async (user) => {
+  if(!user){
+    $("loginScreen").style.display = "grid";
+    $("appScreen").style.display = "none";
     return;
   }
-  try {
-    const app = initializeApp({ apiKey: c.apiKey, projectId: c.projectId, authDomain: c.projectId + '.firebaseapp.com' }, 'gemba');
-    db = getFirestore(app);
-    ready = true;
-    setConn(true, 'Conectado');
-    loadAll();
-  } catch(e) {
-    ready = false;
-    setConn(false, 'Erro: ' + e.message);
-  }
-}
+  $("loginScreen").style.display = "none";
+  $("appScreen").style.display = "grid";
 
-function setConn(on, label) {
-  const dot = document.getElementById('connDot');
-  const lbl = document.getElementById('connLabel');
-  if (dot) dot.className = 'topbar-conn' + (on ? ' on' : '');
-  if (lbl) lbl.textContent = label;
-}
+  currentUserProfile = await loadUserProfile(user.email);
+  $("userName").textContent = currentUserProfile.fullName || user.email;
+  $("userRole").textContent = currentUserProfile.isAdmin ? "Administrador" : "Usuário comum";
 
-// ── Load ──
-async function loadAll() {
-  if (!ready) return;
-  try {
-    const q = query(collection(db, 'inspections'), orderBy('createdAt', 'desc'));
+  listenInspections();
+});
+
+async function loadUserProfile(email){
+  const base = { email, fullName: email, area: "", isAdmin: email === "henrique.vieira@ahlstrom.com" };
+  try{
+    const q = query(collection(db, "users"), where("email", "==", email), limit(1));
     const snap = await getDocs(q);
-    inspections = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderAll();
-  } catch(e) {
-    console.error('Load error:', e);
-    inspections = [];
-    renderAll();
-  }
+    if(!snap.empty){
+      const d = snap.docs[0].data();
+      return {
+        email,
+        fullName: d.fullName || `${d.firstName || ""} ${d.lastName || ""}`.trim() || email,
+        area: d.area || "",
+        isAdmin: d.role === "admin" || d.isAdmin === true || email === "henrique.vieira@ahlstrom.com"
+      };
+    }
+  }catch(e){ console.warn(e); }
+  return base;
 }
 
-// ── Helpers ──
-function fmtDate(ts) {
-  if (!ts) return '—';
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' });
-}
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s || '';
-  return d.innerHTML;
-}
+function listenInspections(){
+  if(unsubscribeInspections) unsubscribeInspections();
+  unsubscribeInspections = onSnapshot(collection(db, "inspections"), (snapshot) => {
+    allInspections = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(i => i.deleted !== true && i.isDeleted !== true && !i.deletedAt);
 
-function statusPill(s) {
-  const map = {
-    completed: 'open', concluido: 'open', concluída: 'open',
-    pending: 'pending', pendente: 'pending', em_andamento: 'pending',
-    open: 'open', aberto: 'open', aberta: 'open',
-    critical: 'critical', critico: 'critical', crítica: 'critical',
-    closed: 'closed', fechado: 'closed', fechada: 'closed',
-    overdue: 'overdue', atrasado: 'overdue',
-  };
-  const cls = map[(s||'').toLowerCase()] || 'pending';
-  const labels = { open:'Concluído', pending:'Pendente', critical:'Crítico', closed:'Fechado', overdue:'Atrasado' };
-  return `<span class="status-pill ${cls}"><span class="sdot"></span>${labels[cls] || s}</span>`;
-}
-
-function getActions(insp) {
-  const a = insp.actions;
-  if (!a) return [];
-  if (Array.isArray(a)) return a;
-  return Object.values(a);
-}
-
-function allActions() {
-  const out = [];
-  inspections.forEach(insp => {
-    getActions(insp).forEach(act => {
-      out.push({ ...act, _inspTitle: insp.title || 'Sem título', _inspId: insp.id, _inspLocation: insp.location || '—', _inspStatus: insp.status });
-    });
+    applyUserVisibility();
+    fillAreaFilter();
+    render();
+    $("syncStatus").textContent = "Atualizado agora";
+  }, (error) => {
+    console.error(error);
+    $("syncStatus").textContent = "Erro ao carregar dados";
   });
-  return out;
 }
 
-// ── Render All ──
-function renderAll() {
-  renderStats();
+function applyUserVisibility(){
+  if(!currentUserProfile || currentUserProfile.isAdmin){
+    visibleInspections = allInspections;
+    return;
+  }
+  visibleInspections = allInspections.filter(i => {
+    const nameMatch = normalize(getInspectorName(i)) === normalize(currentUserProfile.fullName);
+    const areaMatch = currentUserProfile.area && normalize(i.location) === normalize(currentUserProfile.area);
+    const emailMatch = normalize(i.inspectorEmail || i.email) === normalize(currentUserProfile.email);
+    return nameMatch || areaMatch || emailMatch;
+  });
+}
+
+function setView(view){
+  activeView = view;
+  document.querySelectorAll("[data-view]").forEach(el => {
+    el.classList.toggle("active", el.dataset.view === view);
+  });
+  render();
+  if(view !== "dashboard"){
+    $("operationalSection").scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+}
+
+function render(){
+  renderKpis();
   renderCharts();
-  renderInspectionsTable();
-  renderPendingTable();
-  renderOSTable();
-  renderCriticalTable();
-  updateBadges();
+  renderPreview();
+
+  const rows = getRows();
+  currentRows = rows;
+  renderTable(rows);
+
+  $("operationalSection").style.display = activeView === "dashboard" ? "none" : "block";
+  $("dashboardPreview").style.display = activeView === "dashboard" ? "block" : "none";
 }
 
-function updateBadges() {
-  const acts = allActions();
-  const pending = acts.filter(a => (a.status||'').toLowerCase() === 'pending' || (a.status||'').toLowerCase() === 'pendente');
-  const wo = acts.filter(a => a.hasWorkOrder && ((a.status||'').toLowerCase() !== 'closed' && (a.status||'').toLowerCase() !== 'fechado'));
-  const crit = acts.filter(a => (a.status||'').toLowerCase() === 'critical' || (a.status||'').toLowerCase() === 'crítico');
-  setBadge('badge-pending', pending.length);
-  setBadge('badge-os', wo.length);
-  setBadge('badge-critical', crit.length);
+function fillAreaFilter(){
+  const select = $("areaFilter");
+  const previous = select.value;
+  const areas = [...new Set(visibleInspections.map(i => i.location || "Sem área"))].sort();
+  select.innerHTML = `<option value="">Todas as áreas</option>` + areas.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join("");
+  select.value = [...select.options].some(o => o.value === previous) ? previous : "";
 }
 
-function setBadge(id, n) {
-  const el = document.getElementById(id);
-  if (el) { el.textContent = n; el.style.display = n > 0 ? '' : 'none'; }
-}
+function getRows(){
+  const search = normalize($("searchInput").value);
+  const area = $("areaFilter").value;
+  const status = $("statusFilter").value;
+  const criticalOnly = $("criticalFilter").value === "critical";
+  let rows = [];
 
-// ── Stats ──
-function renderStats() {
-  const acts = allActions();
-  document.getElementById('statTotal').textContent = inspections.length;
-  document.getElementById('statOpen').textContent = acts.filter(a => (a.status||'').toLowerCase() === 'pending' || (a.status||'').toLowerCase() === 'pendente' || (a.status||'').toLowerCase() === 'open' || (a.status||'').toLowerCase() === 'aberto').length;
-  document.getElementById('statCritical').textContent = acts.filter(a => (a.status||'').toLowerCase() === 'critical' || (a.status||'').toLowerCase() === 'crítico').length;
-  document.getElementById('statWO').textContent = acts.filter(a => a.hasWorkOrder).length;
-}
+  visibleInspections.forEach(insp => {
+    const actions = getActions(insp);
+    if(activeView === "inspections"){
+      rows.push({ type:"inspection", inspection:insp, action:null });
+    }else{
+      actions.forEach(action => rows.push({ type:"action", inspection:insp, action }));
+    }
+  });
 
-// ── Charts ──
-function destroyChart(k) { if (charts[k]) { charts[k].destroy(); delete charts[k]; } }
+  if(activeView === "dashboard") rows = [];
+  if(activeView === "actions") rows = rows.filter(r => r.action);
+  if(activeView === "pending") rows = rows.filter(r => r.action && isPending(r.action));
+  if(activeView === "os") rows = rows.filter(r => r.action && r.action.hasWorkOrder);
+  if(activeView === "critical") rows = rows.filter(r => r.action && isCritical(r.action));
 
-function renderCharts() {
-  const ctx1 = document.getElementById('statusChart');
-  if (ctx1) {
-    const counts = {}; const map2 = { completed:'Concluído', concluido:'Concluído', pending:'Pendente', pendente:'Pendente', in_progress:'Em Andamento', em_andamento:'Em Andamento', critical:'Crítico', critico:'Crítico' };
-    inspections.forEach(i => { const s = map2[(i.status||'').toLowerCase()] || i.status || 'Outro'; counts[s] = (counts[s]||0) + 1; });
-    const labels = Object.keys(counts);
-    const data = Object.values(counts);
-    const colors = { 'Concluído':'rgba(16,185,129,0.75)', 'Pendente':'rgba(245,158,11,0.75)', 'Em Andamento':'rgba(99,102,241,0.75)', 'Crítico':'rgba(239,68,68,0.75)', 'Outro':'rgba(139,92,246,0.75)' };
+  if(area) rows = rows.filter(r => (r.inspection.location || "Sem área") === area);
+  if(status) rows = rows.filter(r => r.action ? statusOf(r.action) === status : statusOf(r.inspection) === status);
+  if(criticalOnly) rows = rows.filter(r => r.action && isCritical(r.action));
 
-    destroyChart('status');
-    charts.status = new Chart(ctx1, {
-      type:'doughnut',
-      data:{ labels, datasets:[{ data, backgroundColor:labels.map(l=>colors[l]||'rgba(139,92,246,0.75)'), borderWidth:0 }] },
-      options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ position:'bottom', labels:{ color:'#64748b', padding:16, usePointStyle:true, font:{size:11,family:'Inter'} } } } }
+  if(search){
+    rows = rows.filter(r => {
+      const text = [
+        inspectionCode(r.inspection), r.inspection.title, r.inspection.location, getInspectorName(r.inspection,r.action),
+        r.action?.unsafeCondition, r.action?.description, r.action?.immediateAction, r.action?.workOrderNumber
+      ].join(" ");
+      return normalize(text).includes(search);
     });
   }
 
-  const ctx2 = document.getElementById('locationChart');
-  if (ctx2) {
-    const locs = {};
-    inspections.forEach(i => { const l = i.location || 'Não informado'; locs[l] = (locs[l]||0) + 1; });
-    const sorted = Object.entries(locs).sort((a,b) => b[1]-a[1]).slice(0,8);
-    destroyChart('location');
-    charts.location = new Chart(ctx2, {
-      type:'bar',
-      data:{ labels:sorted.map(s=>s[0]), datasets:[{ data:sorted.map(s=>s[1]), backgroundColor:'rgba(14,165,160,0.7)', borderRadius:5, borderSkipped:false }] },
-      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ grid:{ color:'rgba(226,232,240,0.6)' }, ticks:{ color:'#94a3b8', stepSize:1 } }, y:{ grid:{ display:false }, ticks:{ color:'#64748b', font:{size:11,family:'Inter'} } } } }
-    });
+  return rows.sort((a,b) => {
+    const ac = a.action ? Number(isCritical(a.action)) : 0;
+    const bc = b.action ? Number(isCritical(b.action)) : 0;
+    if(bc !== ac) return bc - ac;
+    return toMillis(b.action?.createdAt || b.inspection.createdAt) - toMillis(a.action?.createdAt || a.inspection.createdAt);
+  });
+}
+
+function renderKpis(){
+  const rows = allActionRows();
+  const total = rows.length;
+  const completed = rows.filter(r => isCompleted(r.action)).length;
+  const pending = rows.filter(r => isPending(r.action)).length;
+  const os = rows.filter(r => r.action.hasWorkOrder && isPending(r.action)).length;
+  const critical = rows.filter(r => isPending(r.action) && isCritical(r.action)).length;
+  const rate = total ? Math.round((completed / total) * 100) : 0;
+
+  setText("kpiInspections", visibleInspections.length);
+  setText("kpiActions", total);
+  setText("kpiPending", pending);
+  setText("kpiOs", os);
+  setText("kpiCritical", critical);
+  setText("kpiRate", `${rate}%`);
+}
+
+function renderCharts(){
+  const rows = allActionRows();
+  const pendingRows = rows.filter(r => isPending(r.action));
+
+  const statusData = {
+    "Pendentes": rows.filter(r => isPending(r.action)).length,
+    "Concluídas": rows.filter(r => isCompleted(r.action)).length,
+    "Críticas": rows.filter(r => isPending(r.action) && isCritical(r.action)).length
+  };
+
+  makeChart("statusChart", "doughnut", Object.keys(statusData), Object.values(statusData), ["#f28c28","#168a4a","#d92d20"]);
+
+  const areaMap = {};
+  pendingRows.forEach(r => {
+    const a = r.inspection.location || "Sem área";
+    areaMap[a] = (areaMap[a] || 0) + 1;
+  });
+  const areaItems = Object.entries(areaMap).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  makeChart("areaChart", "bar", areaItems.map(i=>i[0]), areaItems.map(i=>i[1]), ["#123a63"], true);
+
+  const osRows = rows.filter(r => r.action.hasWorkOrder && isPending(r.action));
+  const osAge = {
+    "0-7 dias": osRows.filter(r => daysSince(r.action.workOrderOpenDate) <= 7).length,
+    "8-30 dias": osRows.filter(r => daysSince(r.action.workOrderOpenDate) >= 8 && daysSince(r.action.workOrderOpenDate) <= 30).length,
+    "31+ dias": osRows.filter(r => daysSince(r.action.workOrderOpenDate) >= 31).length
+  };
+  makeChart("osChart", "bar", Object.keys(osAge), Object.values(osAge), ["#f28c28"]);
+}
+
+function makeChart(id,type,labels,data,colors,horizontal=false){
+  const el = $(id);
+  if(!el) return;
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(el, {
+    type,
+    data:{
+      labels,
+      datasets:[{
+        data,
+        backgroundColor: type === "doughnut" ? colors : colors[0],
+        borderWidth:0,
+        borderRadius: type === "bar" ? 8 : 0
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      indexAxis: horizontal ? "y" : "x",
+      plugins:{
+        legend:{ display:type==="doughnut", position:"bottom", labels:{ color:"#617085", usePointStyle:true, font:{size:12} } }
+      },
+      scales: type==="bar" ? {
+        x:{ grid:{ color:"#e6eef6" }, ticks:{ color:"#617085", precision:0 } },
+        y:{ grid:{ display:false }, ticks:{ color:"#617085" } }
+      } : {}
+    }
+  });
+}
+
+function renderPreview(){
+  const rows = allActionRows()
+    .filter(r => isPending(r.action) && (isCritical(r.action) || r.action.hasWorkOrder))
+    .sort((a,b) => Number(isCritical(b.action)) - Number(isCritical(a.action)))
+    .slice(0,8);
+
+  const tb = $("previewBody");
+  if(!rows.length){
+    tb.innerHTML = `<tr><td colspan="7" class="empty">Sem críticas ou OS abertas.</td></tr>`;
+    return;
   }
-}
 
-// ── Tables ──
-function renderInspectionsTable() {
-  const tb = document.getElementById('inspectionsTable');
-  if (!tb) return;
-  if (!inspections.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><p>Nenhuma inspe&ccedil;&atilde;o encontrada</p></div></td></tr>'; return; }
-  tb.innerHTML = inspections.slice(0,15).map(i => `
-    <tr class="clickable" onclick="window._openModal('${i.id}')">
-      <td><span class="cell-id">#${i.id.slice(0,8)}</span></td>
-      <td>${esc(i.title||'—')}</td>
-      <td>${esc(i.location||'—')}</td>
-      <td>${esc(i.inspectorName || i.inspector || '—')}</td>
-      <td>${statusPill(i.status)}</td>
-      <td>${fmtDate(i.createdAt)}</td>
+  tb.innerHTML = rows.map((r,idx) => `
+    <tr>
+      <td><span class="code">${escapeHtml(inspectionCode(r.inspection))}</span><small>${escapeHtml(r.inspection.title || "")}</small></td>
+      <td>${escapeHtml(r.inspection.location || "-")}</td>
+      <td>${escapeHtml(getInspectorName(r.inspection,r.action))}</td>
+      <td>${escapeHtml(r.action.unsafeCondition || "-")}</td>
+      <td>${r.action.hasWorkOrder ? escapeHtml(r.action.workOrderNumber || "-") : "-"}</td>
+      <td>${daysSince(r.action.createdAt)} dias</td>
+      <td><button class="detail-btn" onclick="openDetailFromPreview(${idx})">Ver</button></td>
     </tr>
-  `).join('');
+  `).join("");
+  window.previewRows = rows;
 }
 
-function renderPendingTable() {
-  const acts = allActions().filter(a => (a.status||'').toLowerCase() === 'pending' || (a.status||'').toLowerCase() === 'pendente');
-  const tb = document.getElementById('pendingTable');
-  const cnt = document.getElementById('pendingCount');
-  if (cnt) cnt.textContent = acts.length + ' a&ccedil;&otilde;es';
-  if (!tb) return;
-  if (!acts.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>&#10003; Nenhuma a&ccedil;&atilde;o pendente</p></div></td></tr>'; return; }
-  tb.innerHTML = acts.map(a => `
-    <tr class="clickable" onclick="window._openModal('${a._inspId}')">
-      <td>${esc(a._inspTitle)}</td>
-      <td><strong>${esc(a.unsafeCondition||'—')}</strong></td>
-      <td>${esc(a.immediateAction||'—')}</td>
-      <td>${a.hasWorkOrder ? '<span style="color:var(--primary);font-weight:600">Sim — ' + esc(a.workOrderNumber||'N/A') + '</span>' : 'Não'}</td>
-      <td>${statusPill(a.status)}</td>
-      <td>${fmtDate(a.createdAt)}</td>
-    </tr>
-  `).join('');
+window.openDetailFromPreview = function(idx){
+  const row = window.previewRows?.[idx];
+  if(row) openDrawer(row);
+};
+
+function renderTable(rows){
+  const titles = {
+    inspections:"Lista de inspeções",
+    actions:"Lista de ações",
+    pending:"Relatório de pendências",
+    os:"Lista de OS abertas",
+    critical:"Lista de ações críticas"
+  };
+  $("tableTitle").textContent = titles[activeView] || "Base operacional";
+  $("tableSubtitle").textContent = `${rows.length} registro(s) encontrado(s).`;
+
+  const tb = $("tableBody");
+  if(!rows.length){
+    tb.innerHTML = `<tr><td colspan="8" class="empty">Nenhum registro encontrado.</td></tr>`;
+    return;
+  }
+
+  tb.innerHTML = rows.map((row,idx) => {
+    const i = row.inspection;
+    const a = row.action;
+    if(!a){
+      return `
+        <tr>
+          <td><span class="code">${escapeHtml(inspectionCode(i))}</span><small>${escapeHtml(i.title || "Inspeção")}</small></td>
+          <td>${escapeHtml(i.location || "-")}</td>
+          <td>${escapeHtml(getInspectorName(i))}</td>
+          <td>${statusPill(i)}</td>
+          <td>-</td>
+          <td>-</td>
+          <td><span class="pill neutral">Inspeção</span></td>
+          <td><button class="detail-btn" onclick="openDetail(${idx})">Ver detalhes</button></td>
+        </tr>
+      `;
+    }
+    return `
+      <tr>
+        <td><span class="code">${escapeHtml(inspectionCode(i))}</span><small>${escapeHtml(a.unsafeCondition || i.title || "Ação")}</small></td>
+        <td>${escapeHtml(i.location || "-")}</td>
+        <td>${escapeHtml(getInspectorName(i,a))}</td>
+        <td>${statusPill(a)}</td>
+        <td>${daysSince(a.createdAt)} dias</td>
+        <td>${a.hasWorkOrder ? escapeHtml(a.workOrderNumber || "-") : "-"}</td>
+        <td>${isCritical(a) ? '<span class="pill critical">Crítica</span>' : '<span class="pill neutral">Normal</span>'}</td>
+        <td><button class="detail-btn" onclick="openDetail(${idx})">Ver detalhes</button></td>
+      </tr>
+    `;
+  }).join("");
 }
 
-function renderOSTable() {
-  const acts = allActions().filter(a => a.hasWorkOrder);
-  const tb = document.getElementById('osTable');
-  const cnt = document.getElementById('osCount');
-  if (cnt) cnt.textContent = acts.length + ' OS';
-  if (!tb) return;
-  if (!acts.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>Nenhuma OS aberta</p></div></td></tr>'; return; }
-  tb.innerHTML = acts.map(a => `
-    <tr class="clickable" onclick="window._openModal('${a._inspId}')">
-      <td><span class="cell-id">${esc(a.workOrderNumber||'N/A')}</span></td>
-      <td>${esc(a.unsafeCondition||'—')}</td>
-      <td>${esc(a._inspTitle)}</td>
-      <td>${esc(a._inspLocation)}</td>
-      <td>${fmtDate(a.workOrderOpenDate || a.createdAt)}</td>
-      <td>${statusPill(a.status)}</td>
-    </tr>
-  `).join('');
-}
+window.openDetail = function(idx){
+  const row = currentRows[idx];
+  if(row) openDrawer(row);
+};
 
-function renderCriticalTable() {
-  const acts = allActions().filter(a => (a.status||'').toLowerCase() === 'critical' || (a.status||'').toLowerCase() === 'crítico');
-  const tb = document.getElementById('criticalTable');
-  const cnt = document.getElementById('criticalCount');
-  if (cnt) cnt.textContent = acts.length + ' cr&iacute;ticas';
-  if (!tb) return;
-  if (!acts.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>&#10003; Nenhuma condi&ccedil;&atilde;o cr&iacute;tica</p></div></td></tr>'; return; }
-  tb.innerHTML = acts.map(a => `
-    <tr class="clickable" onclick="window._openModal('${a._inspId}')">
-      <td>${esc(a._inspTitle)}</td>
-      <td>${esc(a._inspLocation)}</td>
-      <td><strong style="color:var(--red)">${esc(a.unsafeCondition||'—')}</strong></td>
-      <td>${esc(a.description||'—')}</td>
-      <td>${esc(a.immediateAction||'—')}</td>
-      <td>${statusPill(a.status)}</td>
-    </tr>
-  `).join('');
-}
+function openDrawer(row){
+  const i = row.inspection;
+  const a = row.action;
+  $("drawerTitle").textContent = inspectionCode(i);
+  $("drawerSubtitle").textContent = a?.unsafeCondition || i.title || "Inspeção";
 
-// ── Modal ──
-let _modalPdf = null;
-window._openModal = function(id) {
-  const insp = inspections.find(i => i.id === id);
-  if (!insp) return;
-  _modalPdf = insp.pdfUrl || null;
-  document.getElementById('modalTitle').textContent = insp.title || 'Inspe&ccedil;&atilde;o #' + id.slice(0,8);
-  const grid = document.getElementById('modalGrid');
-  grid.innerHTML = `
-    <div><div class="detail-label">T&iacute;tulo</div><div class="detail-value">${esc(insp.title||'—')}</div></div>
-    <div><div class="detail-label">Local</div><div class="detail-value">${esc(insp.location||'—')}</div></div>
-    <div><div class="detail-label">Inspetor</div><div class="detail-value">${esc(insp.inspectorName || insp.inspector || '—')}</div></div>
-    <div><div class="detail-label">Status</div><div class="detail-value">${statusPill(insp.status)}</div></div>
-    <div><div class="detail-label">Data de Cria&ccedil;&atilde;o</div><div class="detail-value">${fmtDate(insp.createdAt)}</div></div>
-    <div><div class="detail-label">Atualiza&ccedil;&atilde;o</div><div class="detail-value">${fmtDate(insp.updatedAt)}</div></div>
-    <div class="full"><div class="detail-label">Document ID</div><div class="detail-value" style="font-family:monospace;font-size:0.75rem;color:var(--text3);word-break:break-all">${insp.id}</div></div>
+  const actions = getActions(i);
+  $("drawerBody").innerHTML = `
+    <div class="info-grid">
+      <div class="info"><small>Área</small><strong>${escapeHtml(i.location || "-")}</strong></div>
+      <div class="info"><small>Inspetor</small><strong>${escapeHtml(getInspectorName(i,a))}</strong></div>
+      <div class="info"><small>Status</small>${a ? statusPill(a) : statusPill(i)}</div>
+      <div class="info"><small>ID</small><strong>${escapeHtml(i.id)}</strong></div>
+    </div>
+
+    <div class="section">
+      <h3>Risco identificado</h3>
+      <p>${escapeHtml(a?.unsafeCondition || i.title || "-")}</p>
+    </div>
+
+    <div class="section">
+      <h3>Descrição</h3>
+      <p>${escapeHtml(a?.description || i.shortDescription || "-")}</p>
+    </div>
+
+    <div class="section">
+      <h3>Ação imediata</h3>
+      <p>${escapeHtml(a?.immediateAction || "-")}</p>
+    </div>
+
+    <div class="section">
+      <h3>Ações da inspeção (${actions.length})</h3>
+      ${actions.length ? actions.map(x => `
+        <div class="action-item">
+          <strong>${escapeHtml(x.unsafeCondition || "Ação")}</strong>
+          <p>${escapeHtml(x.description || "")}</p>
+          <small>${x.hasWorkOrder ? "OS: " + escapeHtml(x.workOrderNumber || "-") : "Sem OS"} · ${statusText(x)}</small>
+        </div>
+      `).join("") : "<p>Sem ações registradas.</p>"}
+    </div>
+
+    <div class="section">
+      <h3>Relatório PDF</h3>
+      ${i.pdfUrl ? `<a class="pdf-link" href="${escapeHtml(i.pdfUrl)}" target="_blank" rel="noopener">Abrir relatório PDF</a>` : `<p style="color:#617085">PDF ainda não disponível.</p>`}
+    </div>
   `;
 
-  const pdfBtn = document.getElementById('modalPdfBtn');
-  if (_modalPdf) { pdfBtn.style.display = ''; } else { pdfBtn.style.display = 'none'; }
+  $("backdrop").classList.add("show");
+  $("drawer").classList.add("show");
+}
 
-  const acts = getActions(insp);
-  const actDiv = document.getElementById('modalActions');
-  if (!acts.length) {
-    actDiv.innerHTML = '<h4 style="margin-bottom:10px;font-size:0.9rem;color:var(--text)">A&ccedil;&otilde;es Registradas</h4><p style="color:var(--text3);font-size:0.83rem">Nenhuma a&ccedil;&atilde;o registrada.</p>';
-  } else {
-    actDiv.innerHTML = '<h4 style="margin-bottom:10px;font-size:0.9rem;color:var(--text)">A&ccedil;&otilde;es Registradas (' + acts.length + ')</h4>' + acts.map(a => `
-      <div class="action-item">
-        <div class="action-header">
-          <span class="action-cond">${esc(a.unsafeCondition||'Condi&ccedil;&atilde;o n&atilde;o especificada')}</span>
-          ${statusPill(a.status)}
-        </div>
-        ${a.description ? '<div class="action-desc">'+esc(a.description)+'</div>' : ''}
-        <div class="action-meta">
-          ${a.immediateAction ? '<span>A&ccedil;&atilde;o: '+esc(a.immediateAction)+'</span>' : ''}
-          ${a.hasWorkOrder ? '<span>OS: <strong>'+esc(a.workOrderNumber||'N/A')+'</strong></span>' : ''}
-          ${a.workOrderOpenDate ? '<span>Abertura OS: '+fmtDate(a.workOrderOpenDate)+'</span>' : ''}
-        </div>
-      </div>
-    `).join('');
+function closeDrawer(){
+  $("backdrop").classList.remove("show");
+  $("drawer").classList.remove("show");
+}
+
+function generateReport(){
+  const rows = allActionRows();
+  const completed = rows.filter(r => isCompleted(r.action)).length;
+  const pending = rows.filter(r => isPending(r.action)).length;
+  const critical = rows.filter(r => isPending(r.action) && isCritical(r.action)).length;
+  const os = rows.filter(r => r.action.hasWorkOrder && isPending(r.action)).length;
+  const rate = rows.length ? Math.round((completed / rows.length) * 100) : 0;
+  const top = rows.filter(r => isPending(r.action) && (isCritical(r.action) || r.action.hasWorkOrder)).slice(0,12);
+
+  $("printReport").innerHTML = `
+    <div class="print-cover">
+      <h1>SAFETY GEMBA WALK</h1>
+      <h2>Relatório Executivo Geral</h2>
+      <p>Consolidação das inspeções, ações corretivas, criticidade e ordens de serviço.</p>
+    </div>
+    <div class="print-kpis">
+      <div><small>Inspeções</small><strong>${visibleInspections.length}</strong></div>
+      <div><small>Ações</small><strong>${rows.length}</strong></div>
+      <div><small>Pendentes</small><strong>${pending}</strong></div>
+      <div><small>Críticas</small><strong>${critical}</strong></div>
+      <div><small>OS abertas</small><strong>${os}</strong></div>
+      <div><small>Conclusão</small><strong>${rate}%</strong></div>
+    </div>
+    <h3>Top pendências críticas / OS</h3>
+    <table class="print-table">
+      <thead><tr><th>Inspeção</th><th>Área</th><th>Inspetor</th><th>Risco</th><th>OS</th><th>Dias</th></tr></thead>
+      <tbody>
+        ${top.map(r => `
+          <tr>
+            <td>${escapeHtml(inspectionCode(r.inspection))}</td>
+            <td>${escapeHtml(r.inspection.location || "-")}</td>
+            <td>${escapeHtml(getInspectorName(r.inspection,r.action))}</td>
+            <td>${escapeHtml(r.action.unsafeCondition || "-")}</td>
+            <td>${r.action.hasWorkOrder ? escapeHtml(r.action.workOrderNumber || "-") : "-"}</td>
+            <td>${daysSince(r.action.createdAt)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+    <p style="text-align:center;color:#777;margin-top:24px;font-size:12px">Safety Gemba Walk · Desenvolvido por Henrique Vieira</p>
+  `;
+  setTimeout(()=>window.print(),200);
+}
+
+function getActions(i){
+  if(!i.actions) return [];
+  if(Array.isArray(i.actions)) return i.actions;
+  return Object.values(i.actions);
+}
+
+function allActionRows(){
+  const rows = [];
+  visibleInspections.forEach(i => getActions(i).forEach(a => rows.push({ inspection:i, action:a })));
+  return rows;
+}
+
+function getInspectorName(i,a=null){
+  return firstText([
+    a?.inspectorName,a?.inspector,a?.createdByName,a?.responsibleName,a?.responsible,a?.userName,
+    i?.inspectorName,i?.inspector,i?.createdByName,i?.responsibleName,i?.responsible,i?.userName,
+    i?.user?.fullName,i?.user?.name,i?.createdBy?.fullName,i?.createdBy?.name
+  ]) || firstText([a?.email,i?.email,i?.inspectorEmail,i?.createdByEmail]) || "-";
+}
+
+function firstText(values){
+  for(const v of values){
+    if(v === null || v === undefined) continue;
+    if(typeof v === "string" && v.trim()) return v.trim();
+    if(typeof v === "number") return String(v);
   }
-
-  document.getElementById('modalOverlay').classList.add('open');
-};
-
-window.openPdf = function() {
-  if (_modalPdf) window.open(_modalPdf, '_blank');
-};
-
-function closeModal(e) {
-  if (e && e.target !== document.getElementById('modalOverlay')) return;
-  document.getElementById('modalOverlay').classList.remove('open');
-}
-window.closeModal = closeModal;
-
-// ── Relatório ──
-function renderReport() {
-  const acts = allActions();
-  document.getElementById('rptTotal').textContent = inspections.length;
-  document.getElementById('rptActions').textContent = acts.length;
-  document.getElementById('rptPending').textContent = acts.filter(a => (a.status||'').toLowerCase()==='pending'||(a.status||'').toLowerCase()==='pendente').length;
-  document.getElementById('rptWO').textContent = acts.filter(a => a.hasWorkOrder).length;
-  document.getElementById('rptCritical').textContent = acts.filter(a => (a.status||'').toLowerCase()==='critical'||(a.status||'').toLowerCase()==='crítico').length;
-
-  const stCounts = {};
-  inspections.forEach(i => { const s = i.status || 'Não classificado'; stCounts[s] = (stCounts[s]||0)+1; });
-  document.getElementById('rptStatuses').innerHTML = Object.entries(stCounts).map(([k,v]) => `<div class="report-row"><span>${esc(k)}</span><span class="val">${v}</span></div>`).join('');
-
-  const locs = {};
-  inspections.forEach(i => { const l = i.location || 'Não informado'; locs[l] = (locs[l]||0)+1; });
-  document.getElementById('rptLocations').innerHTML = Object.entries(locs).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<div class="report-row"><span>${esc(k)}</span><span class="val">${v}</span></div>`).join('');
-
-  const insps = {};
-  inspections.forEach(i => { const n = i.inspectorName || i.inspector || 'Não informado'; insps[n] = (insps[n]||0)+1; });
-  document.getElementById('rptInspectors').innerHTML = Object.entries(insps).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<div class="report-row"><span>${esc(k)}</span><span class="val">${v}</span></div>`).join('');
+  return "";
 }
 
-window.printReport = function() { window.print(); };
-
-// ── Navigation ──
-function goPage(p) {
-  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
-  const target = document.getElementById('page-' + p);
-  if (target) target.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const nav = document.querySelector('[data-page="'+p+'"]');
-  if (nav) nav.classList.add('active');
-  const titles = {
-    dashboard:'Dashboard de Inspe&ccedil;&otilde;es', pendentes:'A&ccedil;&otilde;es Pendentes',
-    os:'Ordens de Servi&ccedil;o Abertas', criticas:'Condi&ccedil;&otilde;es Cr&iacute;ticas',
-    relatorio:'Relat&oacute;rio Geral de Seguran&ccedil;a'
-  };
-  document.getElementById('topbar-title').textContent = titles[p] || 'Safety Gemba Walk';
-  if (p === 'relatorio') renderReport();
-  setTimeout(() => { if (p === 'dashboard') { renderCharts(); } }, 50);
-}
-window.goPage = goPage;
-
-// ── Refresh ──
-window.refreshAll = async function() {
-  if (ready) { await loadAll(); toast('Dados atualizados do Firestore.', 'ok'); }
-  else { renderAll(); toast('Sem conex&atilde;o Firestore — mostrando dados locais.', 'err'); }
-};
-
-// ── Toast ──
-let tt;
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'toast ' + (type||'ok') + ' show';
-  clearTimeout(tt);
-  tt = setTimeout(() => el.classList.remove('show'), 3000);
+function inspectionCode(i){
+  const raw = String(i?.id || "").replace(/\D/g,"");
+  return "INSPEÇÃO #" + (raw ? raw.slice(-6).padStart(6,"0") : String(i?.id || "").slice(0,8));
 }
 
-// ── Init ──
-connect();
+function statusOf(x){ return String(x?.status || "").toUpperCase(); }
+function isPending(a){ return ["PENDING","PENDENTE","IN_PROGRESS","OPEN","ABERTO"].includes(statusOf(a)); }
+function isCompleted(a){ return ["COMPLETED","CONCLUÍDO","CONCLUIDO","CLOSED","FECHADO"].includes(statusOf(a)); }
 
-// Demo data for preview when no Firebase
-if (!cfg()) {
-  const now = new Date();
-  inspections = [
-    { id:'insp_001', title:'Inspeção Área de Soldagem', location:'Oficina Mecânica — Setor A', inspectorName:'Carlos Silva', inspector:'Carlos Silva', status:'completed', createdAt:{toDate:()=>new Date(now-86400000*2)}, updatedAt:{toDate:()=>new Date(now-86400000)}, pdfUrl:null, actions:[
-      { id:'act_1', unsafeCondition:'Fagulhas sem proteção', description:'Operador sem anteparo contra fagulhas durante soldagem.', immediateAction:'Instalar biombos de proteção e fornecer EPIs.', hasWorkOrder:true, workOrderNumber:'OS-2026-0142', workOrderOpenDate:'2026-05-25', status:'pending', createdAt:{toDate:()=>new Date(now-86400000*2)} },
-      { id:'act_2', unsafeCondition:'Cilindros de gás não fixados', description:'Cilindros de oxigênio e acetileno sem corrente de fixação.', immediateAction:'Fixar cilindros com correntes e verificar válvulas.', hasWorkOrder:true, workOrderNumber:'OS-2026-0143', workOrderOpenDate:'2026-05-25', status:'critical', createdAt:{toDate:()=>new Date(now-86400000*2)} }
-    ]},
-    { id:'insp_002', title:'Inspeção Linha de Pintura', location:'Galpão 3 — Linha de Pintura', inspectorName:'Ana Martins', inspector:'Ana Martins', status:'completed', createdAt:{toDate:()=>new Date(now-86400000*4)}, updatedAt:{toDate:()=>new Date(now-86400000*3)}, pdfUrl:null, actions:[
-      { id:'act_3', unsafeCondition:'Exaustão insuficiente', description:'Sistema de exaustão com vazão abaixo do mínimo recomendado.', immediateAction:'Realizar manutenção corretiva no sistema de exaustão.', hasWorkOrder:true, workOrderNumber:'OS-2026-0138', workOrderOpenDate:'2026-05-23', status:'open', createdAt:{toDate:()=>new Date(now-86400000*4)} }
-    ]},
-    { id:'insp_003', title:'Inspeção Almoxarifado Químico', location:'Almoxarifado — Setor Químico', inspectorName:'Roberto Lima', inspector:'Roberto Lima', status:'pending', createdAt:{toDate:()=>new Date(now-86400000*1)}, updatedAt:{toDate:()=>new Date(now-86400000*1)}, pdfUrl:null, actions:[
-      { id:'act_4', unsafeCondition:'Produtos sem rotulagem', description:'Galões de solvente sem identificação de risco químico.', immediateAction:'Identificar todos os recipientes com etiquetas de segurança.', hasWorkOrder:false, workOrderNumber:null, workOrderOpenDate:null, status:'pending', createdAt:{toDate:()=>new Date(now-86400000*1)} },
-      { id:'act_5', unsafeCondition:'Chuveiro de emergência obstruído', description:'Acesso ao chuveiro lava-olhos bloqueado por paletes.', immediateAction:'Desobstruir acesso e sinalizar área.', hasWorkOrder:true, workOrderNumber:'OS-2026-0145', workOrderOpenDate:'2026-05-26', status:'pending', createdAt:{toDate:()=>new Date(now-86400000*1)} }
-    ]},
-    { id:'insp_004', title:'Inspeção Pátio de Carga', location:'Pátio Externo — Docas 1-4', inspectorName:'Carlos Silva', inspector:'Carlos Silva', status:'completed', createdAt:{toDate:()=>new Date(now-86400000*7)}, updatedAt:{toDate:()=>new Date(now-86400000*6)}, pdfUrl:null, actions:[
-      { id:'act_6', unsafeCondition:'Sinalização de trânsito apagada', description:'Faixas de pedestres e sinalização de velocidade deterioradas.', immediateAction:'Repintar faixas e instalar novas placas de sinalização.', hasWorkOrder:true, workOrderNumber:'OS-2026-0120', workOrderOpenDate:'2026-05-20', status:'closed', createdAt:{toDate:()=>new Date(now-86400000*7)} }
-    ]},
-    { id:'insp_005', title:'Inspeção Área de Prensas', location:'Fábrica — Setor de Prensas', inspectorName:'Ana Martins', inspector:'Ana Martins', status:'in_progress', createdAt:{toDate:()=>new Date(now-86400000*0.5)}, updatedAt:{toDate:()=>new Date(now-3600000*3)}, pdfUrl:null, actions:[
-      { id:'act_7', unsafeCondition:'Botão de emergência com defeito', description:'Botão de parada de emergência da Prensa 3 não funciona.', immediateAction:'Parar máquina imediatamente e acionar manutenção.', hasWorkOrder:true, workOrderNumber:'OS-2026-0148', workOrderOpenDate:'2026-05-27', status:'critical', createdAt:{toDate:()=>new Date(now-86400000*0.5)} },
-      { id:'act_8', unsafeCondition:'Protetor de correia danificado', description:'Proteção da correia de transmissão da Prensa 2 está rachada.', immediateAction:'Substituir protetor e realizar inspeção completa.', hasWorkOrder:false, workOrderNumber:null, workOrderOpenDate:null, status:'pending', createdAt:{toDate:()=>new Date(now-86400000*0.5)} }
-    ]}
-  ];
-  renderAll();
+function isCritical(a){
+  const st = statusOf(a);
+  const osDays = a?.workOrderOpenDate ? daysSince(a.workOrderOpenDate) : 0;
+  return st.includes("CRIT") || daysSince(a?.createdAt) >= 8 || osDays >= 7;
 }
 
-console.log('%c🔧 Safety Gemba Walk %c| %cHTML + Vanilla JS + Chart.js + Firebase Firestore',
-  'color:#0ea5a0;font-weight:bold','','color:#64748b');
-console.log('%c💡 Configure o Firebase: localStorage gemba_fb = { apiKey: "...", projectId: "..." }',
-  'color:#0ea5a0');
+function statusText(x){
+  if(isCompleted(x)) return "Concluída";
+  if(isPending(x)) return "Pendente";
+  return x?.status || "-";
+}
+
+function statusPill(x){
+  if(isCompleted(x)) return `<span class="pill ok">Concluída</span>`;
+  if(isCritical(x)) return `<span class="pill critical">Crítica</span>`;
+  if(isPending(x)) return `<span class="pill pending">Pendente</span>`;
+  return `<span class="pill neutral">${escapeHtml(x?.status || "-")}</span>`;
+}
+
+function toMillis(v){
+  if(!v) return 0;
+  if(typeof v === "number") return v;
+  if(v.seconds) return v.seconds * 1000;
+  if(v.toDate) return v.toDate().getTime();
+  const n = Number(v);
+  if(!isNaN(n) && n > 0) return n;
+  const d = new Date(v).getTime();
+  return isNaN(d) ? 0 : d;
+}
+
+function daysSince(v){
+  const ms = toMillis(v);
+  if(!ms) return 0;
+  return Math.max(0, Math.floor((Date.now()-ms)/86400000));
+}
+
+function normalize(v){
+  return String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+}
+
+function escapeHtml(v){
+  return String(v || "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+
+function setText(id,v){ const el = $(id); if(el) el.textContent = v; }
 </script>
 </body>
 </html>
