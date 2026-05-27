@@ -191,14 +191,14 @@ button,input,select{font-family:inherit}
 }
 .charts{
   display:grid;
-  grid-template-columns:1fr 1fr 1fr;
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:14px;
 }
 .chartbox{
-  min-height:305px;
+  min-height:285px;
 }
 .chartbox canvas{
-  max-height:245px !important;
+  max-height:225px !important;
 }
 
 /* Tables */
@@ -408,8 +408,11 @@ td small{display:block;color:var(--muted);margin-top:4px}
 
     <div class="nav-title">Relatórios</div>
     <nav class="nav">
-      <button id="btnReport" type="button">Gerar relatório geral</button>
-      <button id="btnRefresh" type="button">Atualizar indicadores</button>
+      <button data-report="general" type="button">Relatório geral</button>
+      <button data-report="area" type="button">Inspeções por área</button>
+      <button data-report="pending" type="button">Relatório de pendências</button>
+      <button data-report="os" type="button">Relatório de OS abertas</button>
+      <button data-report="ranking" type="button">Ranking áreas concluídas</button>
     </nav>
 
     <div class="userbox">
@@ -441,7 +444,7 @@ td small{display:block;color:var(--muted);margin-top:4px}
 
     <section class="panel summary">
       <h2>Resumo executivo</h2>
-      <p>Dados integrados ao Firebase em tempo real. Use os cards para abrir listas operacionais e o botão lateral para emitir relatório geral.</p>
+      <p>Dados integrados ao Firebase em tempo real. O gráfico de responsabilidade separa pendências que dependem de OS das pendências que o inspetor consegue resolver diretamente.</p>
     </section>
 
     <section class="panel">
@@ -463,9 +466,14 @@ td small{display:block;color:var(--muted);margin-top:4px}
 
     <section class="charts">
       <div class="panel chartbox">
-        <h2>Status das ações</h2>
-        <p>Composição geral por situação.</p>
-        <canvas id="statusChart"></canvas>
+        <h2>Responsabilidade das pendências</h2>
+        <p>Com OS = depende de manutenção/terceiros. Sem OS = ação direta do inspetor.</p>
+        <canvas id="responsibilityChart"></canvas>
+      </div>
+      <div class="panel chartbox">
+        <h2>Ranking de conclusão por área</h2>
+        <p>Áreas que mais concluíram pendências.</p>
+        <canvas id="closedAreaChart"></canvas>
       </div>
       <div class="panel chartbox">
         <h2>Pendências por área</h2>
@@ -592,8 +600,9 @@ window.addEventListener("DOMContentLoaded", () => {
   $("areaFilter").addEventListener("change", render);
   $("statusFilter").addEventListener("change", render);
   $("criticalFilter").addEventListener("change", render);
-  $("btnRefresh").addEventListener("click", render);
-  $("btnReport").addEventListener("click", generateReport);
+  document.querySelectorAll("[data-report]").forEach(btn => {
+    btn.addEventListener("click", () => generateReport(btn.dataset.report));
+  });
   $("drawerClose").addEventListener("click", closeDrawer);
   $("backdrop").addEventListener("click", closeDrawer);
 });
@@ -773,13 +782,24 @@ function renderCharts(){
   const rows = allActionRows();
   const pendingRows = rows.filter(r => isPending(r.action));
 
-  const statusData = {
-    "Pendentes": rows.filter(r => isPending(r.action)).length,
-    "Concluídas": rows.filter(r => isCompleted(r.action)).length,
-    "Críticas": rows.filter(r => isPending(r.action) && isCritical(r.action)).length
-  };
+  const directPending = pendingRows.filter(r => !r.action.hasWorkOrder).length;
+  const osPending = pendingRows.filter(r => r.action.hasWorkOrder).length;
+  makeChart(
+    "responsibilityChart",
+    "bar",
+    ["Sem OS: ação do inspetor", "Com OS: depende de manutenção"],
+    [directPending, osPending],
+    ["#168a4a", "#f28c28"],
+    true
+  );
 
-  makeChart("statusChart", "doughnut", Object.keys(statusData), Object.values(statusData), ["#f28c28","#168a4a","#d92d20"]);
+  const closedAreaMap = {};
+  rows.filter(r => isCompleted(r.action)).forEach(r => {
+    const area = r.inspection.location || "Sem área";
+    closedAreaMap[area] = (closedAreaMap[area] || 0) + 1;
+  });
+  const closedItems = Object.entries(closedAreaMap).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  makeChart("closedAreaChart", "bar", closedItems.map(i=>i[0]), closedItems.map(i=>i[1]), ["#168a4a"], true);
 
   const areaMap = {};
   pendingRows.forEach(r => {
@@ -808,7 +828,7 @@ function makeChart(id,type,labels,data,colors,horizontal=false){
       labels,
       datasets:[{
         data,
-        backgroundColor: type === "doughnut" ? colors : colors[0],
+        backgroundColor: colors.length > 1 ? colors : colors[0],
         borderWidth:0,
         borderRadius: type === "bar" ? 8 : 0
       }]
@@ -969,48 +989,139 @@ function closeDrawer(){
   $("drawer").classList.remove("show");
 }
 
-function generateReport(){
+function generateReport(type="general"){
   const rows = allActionRows();
   const completed = rows.filter(r => isCompleted(r.action)).length;
   const pending = rows.filter(r => isPending(r.action)).length;
   const critical = rows.filter(r => isPending(r.action) && isCritical(r.action)).length;
   const os = rows.filter(r => r.action.hasWorkOrder && isPending(r.action)).length;
+  const direct = rows.filter(r => isPending(r.action) && !r.action.hasWorkOrder).length;
   const rate = rows.length ? Math.round((completed / rows.length) * 100) : 0;
-  const top = rows.filter(r => isPending(r.action) && (isCritical(r.action) || r.action.hasWorkOrder)).slice(0,12);
+
+  const reportMap = {
+    general: {
+      title: "Relatório Executivo Geral",
+      desc: "Consolidação das inspeções, ações corretivas, criticidade e ordens de serviço.",
+      tableTitle: "Top pendências críticas / OS",
+      headers: ["Inspeção","Área","Inspetor","Risco","OS","Dias"],
+      rows: rows.filter(r => isPending(r.action) && (isCritical(r.action) || r.action.hasWorkOrder)).slice(0,12),
+      type: "actions"
+    },
+    area: {
+      title: "Relatório de Inspeções por Área",
+      desc: "Distribuição das inspeções e ações por área operacional.",
+      tableTitle: "Resumo por área",
+      headers: ["Área","Inspeções","Ações","Pendentes","Concluídas","Críticas"],
+      rows: buildAreaSummaryRows(),
+      type: "area"
+    },
+    pending: {
+      title: "Relatório de Pendências",
+      desc: "Separação entre pendências sob responsabilidade direta do inspetor e pendências dependentes de OS.",
+      tableTitle: "Pendências abertas",
+      headers: ["Tipo","Inspeção","Área","Inspetor","Risco","Dias"],
+      rows: rows.filter(r => isPending(r.action)).slice(0,18),
+      type: "pending"
+    },
+    os: {
+      title: "Relatório de OS Abertas",
+      desc: "Ações com ordem de serviço vinculada e em acompanhamento.",
+      tableTitle: "OS abertas",
+      headers: ["OS","Abertura","Dias","Área","Inspetor","Risco"],
+      rows: rows.filter(r => r.action.hasWorkOrder && isPending(r.action)).slice(0,18),
+      type: "os"
+    },
+    ranking: {
+      title: "Ranking de Áreas por Pendências Concluídas",
+      desc: "Áreas com maior volume de ações finalizadas no período disponível.",
+      tableTitle: "Ranking de conclusão por área",
+      headers: ["Posição","Área","Concluídas","Pendentes","Total ações","Taxa conclusão"],
+      rows: buildClosedRankingRows(),
+      type: "ranking"
+    }
+  };
+
+  const cfg = reportMap[type] || reportMap.general;
 
   $("printReport").innerHTML = `
     <div class="print-cover">
       <h1>SAFETY GEMBA WALK</h1>
-      <h2>Relatório Executivo Geral</h2>
-      <p>Consolidação das inspeções, ações corretivas, criticidade e ordens de serviço.</p>
+      <h2>${cfg.title}</h2>
+      <p>${cfg.desc}</p>
     </div>
     <div class="print-kpis">
       <div><small>Inspeções</small><strong>${visibleInspections.length}</strong></div>
       <div><small>Ações</small><strong>${rows.length}</strong></div>
       <div><small>Pendentes</small><strong>${pending}</strong></div>
-      <div><small>Críticas</small><strong>${critical}</strong></div>
+      <div><small>Sem OS</small><strong>${direct}</strong></div>
       <div><small>OS abertas</small><strong>${os}</strong></div>
       <div><small>Conclusão</small><strong>${rate}%</strong></div>
     </div>
-    <h3>Top pendências críticas / OS</h3>
+    <h3>${cfg.tableTitle}</h3>
     <table class="print-table">
-      <thead><tr><th>Inspeção</th><th>Área</th><th>Inspetor</th><th>Risco</th><th>OS</th><th>Dias</th></tr></thead>
-      <tbody>
-        ${top.map(r => `
-          <tr>
-            <td>${escapeHtml(inspectionCode(r.inspection))}</td>
-            <td>${escapeHtml(r.inspection.location || "-")}</td>
-            <td>${escapeHtml(getInspectorName(r.inspection,r.action))}</td>
-            <td>${escapeHtml(r.action.unsafeCondition || "-")}</td>
-            <td>${r.action.hasWorkOrder ? escapeHtml(r.action.workOrderNumber || "-") : "-"}</td>
-            <td>${daysSince(r.action.createdAt)}</td>
-          </tr>
-        `).join("")}
-      </tbody>
+      <thead><tr>${cfg.headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+      <tbody>${renderReportRows(cfg)}</tbody>
     </table>
     <p style="text-align:center;color:#777;margin-top:24px;font-size:12px">Safety Gemba Walk · Desenvolvido por Henrique Vieira</p>
   `;
   setTimeout(()=>window.print(),200);
+}
+
+function renderReportRows(cfg){
+  if(!cfg.rows.length){
+    return `<tr><td colspan="${cfg.headers.length}">Sem dados para este relatório.</td></tr>`;
+  }
+
+  if(cfg.type === "area"){
+    return cfg.rows.map(r => `<tr><td>${escapeHtml(r.area)}</td><td>${r.inspections}</td><td>${r.actions}</td><td>${r.pending}</td><td>${r.completed}</td><td>${r.critical}</td></tr>`).join("");
+  }
+
+  if(cfg.type === "ranking"){
+    return cfg.rows.map((r,idx) => `<tr><td>${idx+1}º</td><td>${escapeHtml(r.area)}</td><td>${r.completed}</td><td>${r.pending}</td><td>${r.total}</td><td>${r.rate}%</td></tr>`).join("");
+  }
+
+  if(cfg.type === "os"){
+    return cfg.rows.map(r => `<tr><td>${escapeHtml(r.action.workOrderNumber || "-")}</td><td>${formatDate(r.action.workOrderOpenDate || r.action.createdAt)}</td><td>${daysSince(r.action.workOrderOpenDate || r.action.createdAt)}</td><td>${escapeHtml(r.inspection.location || "-")}</td><td>${escapeHtml(getInspectorName(r.inspection,r.action))}</td><td>${escapeHtml(r.action.unsafeCondition || "-")}</td></tr>`).join("");
+  }
+
+  if(cfg.type === "pending"){
+    return cfg.rows.map(r => `<tr><td>${r.action.hasWorkOrder ? "Com OS" : "Sem OS"}</td><td>${escapeHtml(inspectionCode(r.inspection))}</td><td>${escapeHtml(r.inspection.location || "-")}</td><td>${escapeHtml(getInspectorName(r.inspection,r.action))}</td><td>${escapeHtml(r.action.unsafeCondition || "-")}</td><td>${daysSince(r.action.createdAt)}</td></tr>`).join("");
+  }
+
+  return cfg.rows.map(r => `<tr><td>${escapeHtml(inspectionCode(r.inspection))}</td><td>${escapeHtml(r.inspection.location || "-")}</td><td>${escapeHtml(getInspectorName(r.inspection,r.action))}</td><td>${escapeHtml(r.action.unsafeCondition || "-")}</td><td>${r.action.hasWorkOrder ? escapeHtml(r.action.workOrderNumber || "-") : "-"}</td><td>${daysSince(r.action.createdAt)}</td></tr>`).join("");
+}
+
+function buildAreaSummaryRows(){
+  const map = new Map();
+  visibleInspections.forEach(i => {
+    const area = i.location || "Sem área";
+    if(!map.has(area)) map.set(area,{area,inspections:0,actions:0,pending:0,completed:0,critical:0});
+    const item = map.get(area);
+    item.inspections++;
+    getActions(i).forEach(a => {
+      item.actions++;
+      if(isPending(a)) item.pending++;
+      if(isCompleted(a)) item.completed++;
+      if(isCritical(a)) item.critical++;
+    });
+  });
+  return [...map.values()].sort((a,b)=>b.actions-a.actions);
+}
+
+function buildClosedRankingRows(){
+  return buildAreaSummaryRows().map(r => ({
+    area: r.area,
+    completed: r.completed,
+    pending: r.pending,
+    total: r.actions,
+    rate: r.actions ? Math.round((r.completed / r.actions) * 100) : 0
+  })).sort((a,b)=> b.completed - a.completed || b.rate - a.rate);
+}
+
+function formatDate(v){
+  const ms = toMillis(v);
+  if(!ms) return "-";
+  return new Date(ms).toLocaleDateString("pt-BR");
 }
 
 function getActions(i){
