@@ -61,6 +61,7 @@ $("searchInput").addEventListener("input", render);
 $("areaFilter").addEventListener("change", render);
 $("statusFilter").addEventListener("change", render);
 $("criticalFilter").addEventListener("change", render);
+
 window.addEventListener("DOMContentLoaded", () => {
   $("detailClose")?.addEventListener("click", closeDetailPanel);
   $("detailBackdrop")?.addEventListener("click", closeDetailPanel);
@@ -130,13 +131,14 @@ function listenInspections() {
   if (unsubscribeInspections) unsubscribeInspections();
 
   unsubscribeInspections = onSnapshot(collection(db, "inspections"), (snapshot) => {
-   allInspections = snapshot.docs
-  .map((doc) => ({ id: doc.id, ...doc.data() }))
-  .filter((inspection) =>
-    inspection.deleted !== true &&
-    inspection.isDeleted !== true &&
-    !inspection.deletedAt
-  );
+    allInspections = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((inspection) =>
+        inspection.deleted !== true &&
+        inspection.isDeleted !== true &&
+        !inspection.deletedAt
+      );
+
     applyUserVisibility();
     fillAreaFilter();
     render();
@@ -146,7 +148,6 @@ function listenInspections() {
     $("syncStatus").textContent = "Erro ao carregar dados";
   });
 }
-
 
 function firstValidText(values) {
   for (const value of values) {
@@ -186,9 +187,7 @@ function getInspectorName(inspection, action = null) {
     inspection?.createdBy?.name
   ]);
 
-  if (name) {
-    return name;
-  }
+  if (name) return name;
 
   const email = firstValidText([
     action?.inspectorEmail,
@@ -203,7 +202,6 @@ function getInspectorName(inspection, action = null) {
 
   return email || "-";
 }
-
 
 function applyUserVisibility() {
   if (!currentUserProfile || currentUserProfile.isAdmin) {
@@ -301,12 +299,17 @@ function renderKpis() {
     (inspection.actions || []).forEach(action => allActionRows.push({ inspection, action }));
   });
 
+  const totalActions = allActionRows.length;
+  const completed = allActionRows.filter(r => isCompleted(r.action)).length;
+  const completionRate = totalActions ? Math.round((completed / totalActions) * 100) : 0;
+
   setText("kpiInspections", visibleInspections.length);
-  setText("kpiActions", allActionRows.length);
+  setText("kpiActions", totalActions);
   setText("kpiPending", allActionRows.filter(r => isPending(r.action)).length);
-  setText("kpiCompleted", allActionRows.filter(r => isCompleted(r.action)).length);
+  setText("kpiCompleted", completed);
   setText("kpiOs", allActionRows.filter(r => r.action.hasWorkOrder && isPending(r.action)).length);
   setText("kpiCritical", allActionRows.filter(r => isPending(r.action) && isCritical(r.action)).length);
+  setText("completionRate", `${completionRate}%`);
 }
 
 function renderCharts() {
@@ -420,7 +423,6 @@ function renderTable(rows) {
   }).join("");
 }
 
-
 window.openDetailPanel = function(rowIndex) {
   const row = currentRows[rowIndex];
   if (!row) return;
@@ -487,7 +489,7 @@ window.openDetailPanel = function(rowIndex) {
       </div>
     </div>
 
-    <div class="detail-section">
+    <div class="detail-section pdf-section">
       <h3>Relatório PDF</h3>
       ${inspection.pdfUrl
         ? `<a class="pdf-link big" href="${escapeHtml(inspection.pdfUrl)}" target="_blank" rel="noopener">Abrir relatório PDF</a>`
@@ -508,40 +510,6 @@ window.closeDetailPanel = function closeDetailPanel() {
   $("detailBackdrop").classList.remove("show");
   $("detailPanel").classList.remove("show");
 }
-
-function renderPhotoBlock(action) {
-  if (!action) return `<p class="muted-text">Selecione uma ação para visualizar fotos.</p>`;
-
-  const before = action.beforePhotoUrl || action.beforePhotoDownloadUrl || action.beforeUrl || "";
-  const after = action.afterPhotoUrl || action.afterPhotoDownloadUrl || action.afterUrl || "";
-
-  const beforePath = action.beforePhotoPath || "";
-  const afterPath = action.afterPhotoPath || "";
-
-  if (!before && !after && !beforePath && !afterPath) {
-    return `<p class="muted-text">Sem fotos registradas.</p>`;
-  }
-
-  return `
-    <div class="photo-grid">
-      <div>
-        <small>Antes</small>
-        ${before
-          ? `<img src="${escapeHtml(before)}" alt="Foto antes">`
-          : `<p class="muted-text">${escapeHtml(beforePath || "Sem foto antes")}</p>`
-        }
-      </div>
-      <div>
-        <small>Depois</small>
-        ${after
-          ? `<img src="${escapeHtml(after)}" alt="Foto depois">`
-          : `<p class="muted-text">${escapeHtml(afterPath || "Sem foto depois")}</p>`
-        }
-      </div>
-    </div>
-  `;
-}
-
 
 function setActiveButton() {
   document.querySelectorAll("[data-view]").forEach((btn) => {
@@ -601,7 +569,6 @@ function daysSince(value) {
 
 setActiveButton();
 </script>
-
 <style>
 :root {
   --bg: #f3f6fb;
@@ -637,20 +604,19 @@ body {
 }
 
 .login-box {
-  width: min(360px, 92vw);
+  width: min(380px, 92vw);
   background: #ffffff;
-  border-radius: 26px;
-  padding: 38px 32px;
+  border-radius: 30px;
+  padding: 42px 36px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.28);
   text-align: center;
 }
 
 .login-box h1 {
   margin: 0 0 14px;
-  font-size: 32px;
-  line-height: 38px;
+  font-size: 34px;
+  line-height: 42px;
   color: #0b2d52;
-  letter-spacing: -.4px;
 }
 
 .login-box p {
@@ -662,14 +628,12 @@ body {
 
 .login-box input {
   width: 100%;
-  height: 56px;
-  border-radius: 14px;
+  height: 58px;
+  border-radius: 16px;
   border: 1px solid #c8d5e3;
   padding: 0 16px;
   font-size: 16px;
   outline: none;
-  background: #ffffff;
-  color: #0b2d52;
 }
 
 .login-box input:focus {
@@ -679,126 +643,203 @@ body {
 
 .login-box button {
   width: 100%;
-  height: 56px;
+  height: 58px;
   border: none;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #123f6b;
   color: white;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  transition: 0.2s;
-}
-
-.login-box button:hover {
-  background: #0c2d50;
 }
 
 .error {
   min-height: 22px;
   color: var(--danger);
   margin-top: 16px;
-  font-weight: 600;
-  text-align: center;
+  font-weight: 700;
 }
 
 .app-screen {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 290px 1fr;
 }
 
 .sidebar {
   background: linear-gradient(180deg, #081a2f, #153b66);
   color: white;
-  padding: 24px;
+  padding: 26px;
   position: sticky;
   top: 0;
   height: 100vh;
 }
 
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 28px;
+  margin-bottom: 34px;
 }
 
-.brand img {
-  width: 58px;
-  height: 58px;
-  object-fit: contain;
+.brand strong {
+  display: block;
+  font-size: 24px;
+  line-height: 30px;
 }
 
-.brand strong { display: block; font-size: 18px; }
-.brand span { color: rgba(255,255,255,.70); font-size: 12px; }
+.brand span {
+  color: rgba(255,255,255,.68);
+  font-size: 12px;
+  margin-top: 6px;
+  display: block;
+}
 
-.nav { display: grid; gap: 10px; }
+.nav {
+  display: grid;
+  gap: 12px;
+}
 
 .nav button {
   text-align: left;
+  border: none;
+  border-radius: 16px;
+  padding: 14px 16px;
   background: rgba(255,255,255,.08);
   color: rgba(255,255,255,.82);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s;
 }
 
-.nav button.active, .nav button:hover {
+.nav button.active,
+.nav button:hover {
   background: white;
   color: var(--primary);
 }
 
 .user-box {
   position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 24px;
-  border-top: 1px solid rgba(255,255,255,.20);
+  left: 26px;
+  right: 26px;
+  bottom: 26px;
+  border-top: 1px solid rgba(255,255,255,.18);
   padding-top: 18px;
 }
 
-.user-box strong, .user-box span { display: block; }
-.user-box span { color: rgba(255,255,255,.70); font-size: 12px; }
+.user-box strong {
+  display: block;
+  font-size: 15px;
+}
 
-.main { padding: 28px; }
+.user-box span {
+  display: block;
+  color: rgba(255,255,255,.72);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.main {
+  padding: 28px;
+}
 
 .topbar {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
   align-items: center;
   margin-bottom: 24px;
 }
 
-.topbar h1 { margin: 0; font-size: 34px; letter-spacing: -.8px; }
-.topbar p { margin: 6px 0 0; color: var(--muted); }
-.logout { min-width: 110px; }
+.topbar h1 {
+  margin: 0;
+  font-size: 40px;
+  letter-spacing: -1px;
+}
+
+.topbar p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.logout {
+  min-width: 120px;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 18px;
+  background: var(--primary);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
 
 .kpis {
   display: grid;
-  grid-template-columns: repeat(6, minmax(150px, 1fr));
+  grid-template-columns: repeat(7, minmax(150px, 1fr));
   gap: 16px;
 }
 
 .kpi {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 22px;
-  padding: 18px;
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  transition: .2s ease;
+}
+
+.kpi:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 26px 60px rgba(16,38,70,.18);
+}
+
+.kpi small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.kpi strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 44px;
+  letter-spacing: -1px;
+}
+
+.executive-summary {
+  margin: 18px 0;
+  background: linear-gradient(135deg, #ffffff, #f8fbff);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 22px;
   box-shadow: var(--shadow);
 }
 
-.kpi small { color: var(--muted); font-weight: 700; }
-.kpi strong { display: block; margin-top: 10px; font-size: 34px; }
+.executive-summary h2 {
+  margin: 0 0 8px;
+}
+
+.executive-summary p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
 
 .filters {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: 24px;
   padding: 18px;
-  margin: 18px 0;
+  margin-bottom: 18px;
   display: grid;
   grid-template-columns: 1.8fr 1fr 1fr 1fr;
   gap: 12px;
   box-shadow: var(--shadow);
+}
+
+.filters input,
+.filters select {
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 0 14px;
+  font-size: 14px;
 }
 
 .charts {
@@ -811,13 +852,21 @@ body {
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: 24px;
   padding: 18px;
   box-shadow: var(--shadow);
 }
 
-.panel h2 { margin: 0; font-size: 18px; }
-.panel p { margin: 4px 0 16px; color: var(--muted); font-size: 13px; }
+.panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.panel p {
+  margin: 6px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
 
 .bar-row {
   display: grid;
@@ -839,21 +888,28 @@ body {
 .bar-track {
   height: 18px;
   background: var(--surface-2);
-  border-radius: 99px;
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .bar-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--primary), #2d6ca3);
-  border-radius: 99px;
+  border-radius: 999px;
 }
 
-.empty { color: var(--muted); font-weight: 600; padding: 12px 0; }
+.table-panel {
+  overflow: hidden;
+  padding: 0;
+}
 
-.table-panel { overflow: hidden; padding: 0; }
-.table-title { padding: 18px 18px 0; }
-.table-wrap { overflow: auto; }
+.table-title {
+  padding: 18px 18px 0;
+}
+
+.table-wrap {
+  overflow: auto;
+}
 
 table {
   width: 100%;
@@ -875,7 +931,19 @@ th {
   background: #f8fbff;
 }
 
-td small { display: block; color: var(--muted); margin-top: 4px; }
+tbody tr {
+  transition: .15s;
+}
+
+tbody tr:hover {
+  background: #f4f8fc;
+}
+
+td small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
 
 .pill {
   display: inline-block;
@@ -885,24 +953,35 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   font-weight: 800;
 }
 
-.pill.ok { color: var(--ok); background: rgba(27,143,77,.10); }
-.pill.warn { color: #9a6a00; background: rgba(249,168,37,.15); }
-.pill.danger { color: var(--danger); background: rgba(211,47,47,.12); }
-.pill.neutral { color: var(--primary); background: rgba(21,59,102,.10); }
+.pill.ok {
+  color: var(--ok);
+  background: rgba(27,143,77,.10);
+}
 
+.pill.warn {
+  color: #9a6a00;
+  background: rgba(249,168,37,.15);
+}
+
+.pill.danger {
+  color: white;
+  background: linear-gradient(135deg,#c62828,#ff5252);
+}
+
+.pill.neutral {
+  color: var(--primary);
+  background: rgba(21,59,102,.10);
+}
 
 .detail-btn {
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--primary);
   color: #fff;
-  padding: 8px 12px;
-  font-weight: 700;
+  padding: 10px 14px;
+  font-weight: 800;
   cursor: pointer;
-  white-space: nowrap;
 }
-
-.detail-btn:hover { background: var(--primary-2); }
 
 .detail-backdrop {
   position: fixed;
@@ -925,7 +1004,7 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   right: 18px;
   bottom: 18px;
   width: min(760px, 46vw);
-  background: #fff;
+  background: linear-gradient(180deg,#ffffff,#f8fbff);
   border: 1px solid var(--border);
   border-radius: 24px;
   box-shadow: 0 24px 70px rgba(8, 26, 47, .30);
@@ -937,29 +1016,15 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   overflow: hidden;
 }
 
-.detail-panel.show { transform: translateX(0); }
+.detail-panel.show {
+  transform: translateX(0);
+}
 
 .detail-header {
   padding: 24px;
-  background: linear-gradient(135deg, #f8fbff, #ffffff);
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.detail-header h2 { margin: 0; font-size: 22px; }
-.detail-header p { margin: 4px 0 0; color: var(--muted); }
-
-.detail-close {
-  border: none;
-  background: var(--surface-2);
-  color: var(--text);
-  border-radius: 12px;
-  padding: 8px 12px;
-  cursor: pointer;
-  font-weight: 800;
 }
 
 .detail-content {
@@ -967,339 +1032,248 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   overflow: auto;
 }
 
-.detail-hero {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.detail-hero > div {
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 16px;
-  background: #f8fbff;
-}
-
-.detail-hero small {
-  display: block;
-  color: var(--muted);
-  font-weight: 900;
-  margin-bottom: 8px;
-}
-
-.detail-section {
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 16px;
-  margin-bottom: 14px;
-  background: #fff;
-}
-
-.detail-section.premium {
-  border-left: 5px solid var(--primary);
-}
-
-.detail-section h3 {
-  margin: 0 0 12px;
-  font-size: 16px;
-}
-
-.detail-section p {
-  margin: 0;
-  color: var(--text);
-  line-height: 1.45;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.detail-grid div {
-  background: #f8fbff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 12px;
-}
-
-.detail-grid small,
-.photo-grid small {
-  display: block;
-  color: var(--muted);
-  font-weight: 800;
-  margin-bottom: 4px;
-}
-
-.detail-grid strong {
-  display: block;
-  word-break: break-word;
-}
-
-.photo-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.photo-grid img {
-  width: 100%;
-  max-height: 360px;
-  object-fit: cover;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 24px rgba(16, 38, 70, .12);
-}
-
-.photos-section {
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
-}
-
-.timeline {
-  display: grid;
-  gap: 10px;
-}
-
-.timeline div {
-  display: grid;
-  grid-template-columns: 14px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  background: #f8fbff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px 12px;
-}
-
-.timeline span {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--primary);
-}
-
-.timeline small {
-  color: var(--muted);
-  font-weight: 800;
-}
-
-.pdf-link {
-  display: inline-block;
-  background: var(--primary);
-  color: #fff;
-  text-decoration: none;
+.detail-close {
+  border: none;
+  background: var(--surface-2);
   border-radius: 12px;
   padding: 10px 14px;
-  font-weight: 800;
-}
-
-.pdf-link.big {
-  width: 100%;
-  text-align: center;
-  padding: 14px 18px;
-  font-size: 15px;
-}
-
-.detail-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-bottom: 6px;
-}
-
-.complete-btn, .secondary-btn {
-  border: none;
-  border-radius: 14px;
-  padding: 13px 16px;
-  font-weight: 900;
   cursor: pointer;
-}
-
-.complete-btn {
-  background: var(--ok);
-  color: #fff;
-}
-
-.secondary-btn {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.muted-text {
-  color: var(--muted) !important;
-  font-size: 13px;
-  word-break: break-word;
-}
-
-
-.empty-table {
-  text-align: center;
-  color: var(--muted);
-  padding: 40px;
+  font-weight: 800;
 }
 
 .footer {
   margin-top: 20px;
   color: var(--muted);
-  font-size: 12px;
-  text-align: right;
+  font-size: 11px;
+  text-align: center;
 }
 
 @media (max-width: 1100px) {
-  .app-screen { grid-template-columns: 1fr; }
-  .sidebar { position: relative; height: auto; }
-  .user-box { position: static; margin-top: 20px; }
-  .kpis { grid-template-columns: repeat(2, 1fr); }
-  .charts, .filters { grid-template-columns: 1fr; }
+  .app-screen {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: relative;
+    height: auto;
+  }
+
+  .user-box {
+    position: static;
+    margin-top: 20px;
+  }
+
+  .kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts,
+  .filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
-  .main { padding: 16px; }
-  .kpis { grid-template-columns: 1fr; }
-  .topbar { align-items: flex-start; flex-direction: column; }
-  .logout { width: 100%; }
+  .main {
+    padding: 16px;
+  }
+
+  .kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .logout {
+    width: 100%;
+  }
 }
 </style>
 </head>
 
 <body>
-  <section id="loginScreen" class="login-screen">
-    <div class="login-box">
-      <h1>Bem-vindo ao<br>Safety Gemba Walk</h1>
-      <p>Dashboard executivo de inspeções e ações de segurança.</p>
 
-      <input id="email" type="email" placeholder="E-mail" autocomplete="email" />
-      <br><br>
-      <input id="password" type="password" placeholder="Senha" autocomplete="current-password" />
-      <br><br>
-      <button id="loginBtn">Entrar</button>
-      <div id="loginError" class="error"></div>
+<section id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <h1>Safety Gemba Walk</h1>
+    <p>Plataforma executiva de inspeções e gestão operacional.</p>
+
+    <input id="email" type="email" placeholder="E-mail" />
+    <br><br>
+
+    <input id="password" type="password" placeholder="Senha" />
+    <br><br>
+
+    <button id="loginBtn">Entrar</button>
+
+    <div id="loginError" class="error"></div>
+  </div>
+</section>
+
+<section id="appScreen" class="app-screen" style="display:none">
+
+  <aside class="sidebar">
+
+    <div class="brand">
+      <strong>Safety Gemba Walk</strong>
+      <span>Dashboard Corporativo de Segurança</span>
     </div>
-  </section>
 
-  <section id="appScreen" class="app-screen" style="display:none">
-    <aside class="sidebar">
-      <div class="brand">
-        <div>
-          <strong>Safety Gemba Walk</strong>
-          <span>Desenvolvido por Henrique Vieira</span>
-        </div>
-      </div>
+    <nav class="nav">
+      <button data-view="overview" class="active">Visão geral</button>
+      <button data-view="inspections">Inspeções</button>
+      <button data-view="pending">Pendências</button>
+      <button data-view="os">OS abertas</button>
+      <button data-view="critical">Críticas</button>
+    </nav>
 
-      <nav class="nav">
-        <button data-view="overview" class="active">Visão geral</button>
-        <button data-view="inspections">Inspeções</button>
-        <button data-view="pending">Pendências</button>
-        <button data-view="os">OS abertas</button>
-        <button data-view="critical">Críticas</button>
-      </nav>
-
-      <div class="user-box">
-        <strong id="userName">Usuário</strong>
-        <span id="userRole">Perfil</span>
-        <span id="syncStatus">Aguardando dados...</span>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div class="topbar">
-        <div>
-          <h1>Dashboard Executivo</h1>
-          <p>Indicadores em tempo real conectados ao Firebase.</p>
-        </div>
-        <button id="logoutBtn" class="logout">Sair</button>
-      </div>
-
-      <section class="kpis">
-        <div class="kpi"><small>Inspeções</small><strong id="kpiInspections">0</strong></div>
-        <div class="kpi"><small>Ações</small><strong id="kpiActions">0</strong></div>
-        <div class="kpi"><small>Pendentes</small><strong id="kpiPending">0</strong></div>
-        <div class="kpi"><small>Concluídas</small><strong id="kpiCompleted">0</strong></div>
-        <div class="kpi"><small>OS abertas</small><strong id="kpiOs">0</strong></div>
-        <div class="kpi"><small>Críticas</small><strong id="kpiCritical">0</strong></div>
-      </section>
-
-      <section class="filters">
-        <input id="searchInput" type="text" placeholder="Buscar por área, inspetor, ação ou OS..." />
-        <select id="areaFilter"><option value="">Todas as áreas</option></select>
-        <select id="statusFilter">
-          <option value="">Todos os status</option>
-          <option value="PENDING">Pendentes</option>
-          <option value="COMPLETED">Concluídas</option>
-        </select>
-        <select id="criticalFilter">
-          <option value="">Todas criticidades</option>
-          <option value="critical">Somente críticas</option>
-        </select>
-      </section>
-
-      <section class="charts">
-        <div class="panel">
-          <h2>Ranking por área</h2>
-          <p>Áreas com mais ações pendentes.</p>
-          <div id="chartArea"></div>
-        </div>
-
-        <div class="panel">
-          <h2>Idade das pendências</h2>
-          <p>Tempo em aberto das ações.</p>
-          <div id="chartAge"></div>
-        </div>
-
-        <div class="panel">
-          <h2>OS abertas por tempo</h2>
-          <p>Tempo de OS vinculadas às pendências.</p>
-          <div id="chartOs"></div>
-        </div>
-      </section>
-
-      <section class="panel table-panel">
-        <div class="table-title">
-          <h2>Base operacional</h2>
-          <p>Registros filtrados conforme a visão selecionada.</p>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Registro</th>
-                <th>Área</th>
-                <th>Inspetor</th>
-                <th>Status</th>
-                <th>Dias pendente</th>
-                <th>OS</th>
-                <th>Dias OS</th>
-                <th>Criticidade</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody">
-              <tr><td colspan="9" class="empty-table">Carregando...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <div class="footer">
-        Safety Gemba Walk · Desenvolvido por Henrique Vieira
-      </div>
-    </main>
-  </section>
-
-  <div id="detailBackdrop" class="detail-backdrop"></div>
-
-  <aside id="detailPanel" class="detail-panel">
-    <div class="detail-header">
-      <div>
-        <h2 id="detailTitle">Detalhes</h2>
-        <p id="detailSubtitle">Registro selecionado</p>
-      </div>
-      <button id="detailClose" class="detail-close">Fechar</button>
+    <div class="user-box">
+      <strong id="userName">Usuário</strong>
+      <span id="userRole">Perfil</span>
+      <span id="syncStatus">Atualizando...</span>
     </div>
-    <div id="detailContent" class="detail-content"></div>
+
   </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+      <div>
+        <h1>Safety Gemba Walk</h1>
+        <p>Painel executivo de inspeções, ações corretivas e gestão operacional.</p>
+      </div>
+
+      <button id="logoutBtn" class="logout">Sair</button>
+    </div>
+
+    <section class="kpis">
+      <div class="kpi"><small>Inspeções</small><strong id="kpiInspections">0</strong></div>
+      <div class="kpi"><small>Ações</small><strong id="kpiActions">0</strong></div>
+      <div class="kpi"><small>Pendentes</small><strong id="kpiPending">0</strong></div>
+      <div class="kpi"><small>Concluídas</small><strong id="kpiCompleted">0</strong></div>
+      <div class="kpi"><small>OS abertas</small><strong id="kpiOs">0</strong></div>
+      <div class="kpi"><small>Críticas</small><strong id="kpiCritical">0</strong></div>
+      <div class="kpi"><small>% conclusão</small><strong id="completionRate">0%</strong></div>
+    </section>
+
+    <section class="executive-summary">
+      <h2>Resumo Executivo</h2>
+      <p>
+        Plataforma integrada para gestão de inspeções Safety Gemba Walk,
+        acompanhamento de ações corretivas, controle de criticidade
+        e rastreabilidade operacional em tempo real.
+      </p>
+    </section>
+
+    <section class="filters">
+      <input id="searchInput" type="text" placeholder="Buscar por área, inspetor, ação ou OS..." />
+
+      <select id="areaFilter">
+        <option value="">Todas as áreas</option>
+      </select>
+
+      <select id="statusFilter">
+        <option value="">Todos os status</option>
+        <option value="PENDING">Pendentes</option>
+        <option value="COMPLETED">Concluídas</option>
+      </select>
+
+      <select id="criticalFilter">
+        <option value="">Todas criticidades</option>
+        <option value="critical">Somente críticas</option>
+      </select>
+    </section>
+
+    <section class="charts">
+
+      <div class="panel">
+        <h2>Ranking por área</h2>
+        <p>Áreas com maior volume de ações pendentes.</p>
+        <div id="chartArea"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Idade das pendências</h2>
+        <p>Tempo em aberto das ações corretivas.</p>
+        <div id="chartAge"></div>
+      </div>
+
+      <div class="panel">
+        <h2>OS abertas por tempo</h2>
+        <p>Tempo de ordens de serviço vinculadas.</p>
+        <div id="chartOs"></div>
+      </div>
+
+    </section>
+
+    <section class="panel table-panel">
+
+      <div class="table-title">
+        <h2>Base Operacional</h2>
+        <p>Registros filtrados conforme os indicadores selecionados.</p>
+      </div>
+
+      <div class="table-wrap">
+
+        <table>
+
+          <thead>
+            <tr>
+              <th>Registro</th>
+              <th>Área</th>
+              <th>Inspetor</th>
+              <th>Status</th>
+              <th>Dias pendente</th>
+              <th>OS</th>
+              <th>Dias OS</th>
+              <th>Criticidade</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+
+          <tbody id="tableBody">
+            <tr>
+              <td colspan="9" class="empty-table">
+                Carregando registros...
+              </td>
+            </tr>
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+    <div class="footer">
+      Safety Gemba Walk © Plataforma Corporativa de Segurança
+    </div>
+
+  </main>
+
+</section>
+
+<div id="detailBackdrop" class="detail-backdrop"></div>
+
+<aside id="detailPanel" class="detail-panel">
+
+  <div class="detail-header">
+    <div>
+      <h2 id="detailTitle">Detalhes</h2>
+      <p id="detailSubtitle">Registro selecionado</p>
+    </div>
+
+    <button id="detailClose" class="detail-close">
+      Fechar
+    </button>
+  </div>
+
+  <div id="detailContent" class="detail-content"></div>
+
+</aside>
 
 </body>
 </html>
