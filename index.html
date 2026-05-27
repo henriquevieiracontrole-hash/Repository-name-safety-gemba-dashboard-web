@@ -179,7 +179,7 @@ button,input,select{font-family:inherit}
 }
 .filters{
   display:grid;
-  grid-template-columns:1.7fr 1fr 1fr 1fr;
+  grid-template-columns:1.6fr .85fr .85fr 1fr 1fr;
   gap:10px;
 }
 .filters input,.filters select{
@@ -444,22 +444,20 @@ td small{display:block;color:var(--muted);margin-top:4px}
 
     <section class="panel summary">
       <h2>Resumo executivo</h2>
-      <p>Dados integrados ao Firebase em tempo real. O gráfico de responsabilidade separa pendências que dependem de OS das pendências que o inspetor consegue resolver diretamente.</p>
+      <p>Dados integrados ao Firebase em tempo real. Use o range de datas para analisar inspeções, ações, pendências, OS abertas e conclusões por período.</p>
     </section>
 
     <section class="panel">
       <div class="filters">
         <input id="searchInput" type="text" placeholder="Buscar por inspeção, área, inspetor, risco ou OS..." />
+        <input id="startDateFilter" type="date" title="Data inicial" />
+        <input id="endDateFilter" type="date" title="Data final" />
         <select id="areaFilter"><option value="">Todas as áreas</option></select>
         <select id="statusFilter">
           <option value="">Todos os status</option>
           <option value="PENDING">Pendentes</option>
           <option value="COMPLETED">Concluídas</option>
           <option value="IN_PROGRESS">Em andamento</option>
-        </select>
-        <select id="criticalFilter">
-          <option value="">Todas criticidades</option>
-          <option value="critical">Somente críticas</option>
         </select>
       </div>
     </section>
@@ -512,7 +510,7 @@ td small{display:block;color:var(--muted);margin-top:4px}
     </section>
 
     <section id="dashboardPreview" class="panel">
-      <h2>Top críticas e OS abertas</h2>
+      <h2>Pendências e OS abertas</h2>
       <p>Visão rápida para acompanhamento gerencial.</p>
       <div class="table-wrap">
         <table>
@@ -597,9 +595,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   $("searchInput").addEventListener("input", render);
+  $("startDateFilter").addEventListener("change", render);
+  $("endDateFilter").addEventListener("change", render);
   $("areaFilter").addEventListener("change", render);
   $("statusFilter").addEventListener("change", render);
-  $("criticalFilter").addEventListener("change", render);
   document.querySelectorAll("[data-report]").forEach(btn => {
     btn.addEventListener("click", () => generateReport(btn.dataset.report));
   });
@@ -717,11 +716,54 @@ function fillAreaFilter(){
   select.value = [...select.options].some(o => o.value === previous) ? previous : "";
 }
 
+function isInsideDateRange(value){
+  const start = $("startDateFilter")?.value;
+  const end = $("endDateFilter")?.value;
+
+  if(!start && !end) return true;
+
+  const ms = toMillis(value);
+  if(!ms) return false;
+
+  const date = new Date(ms);
+  date.setHours(0,0,0,0);
+
+  if(start){
+    const startDate = new Date(start + "T00:00:00");
+    startDate.setHours(0,0,0,0);
+    if(date < startDate) return false;
+  }
+
+  if(end){
+    const endDate = new Date(end + "T23:59:59");
+    endDate.setHours(23,59,59,999);
+    if(date > endDate) return false;
+  }
+
+  return true;
+}
+
+function currentPeriodText(){
+  const start = $("startDateFilter")?.value;
+  const end = $("endDateFilter")?.value;
+
+  if(!start && !end) return "Período: todos os registros";
+
+  const format = (value) => {
+    if(!value) return "";
+    const [y,m,d] = value.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
+  if(start && end) return `Período: ${format(start)} até ${format(end)}`;
+  if(start) return `Período: a partir de ${format(start)}`;
+  return `Período: até ${format(end)}`;
+}
+
 function getRows(){
   const search = normalize($("searchInput").value);
   const area = $("areaFilter").value;
   const status = $("statusFilter").value;
-  const criticalOnly = $("criticalFilter").value === "critical";
   let rows = [];
 
   visibleInspections.forEach(insp => {
@@ -733,6 +775,22 @@ function getRows(){
     }
   });
 
+  rows = rows.filter(r => {
+    if(r.action){
+      if(activeView === "os"){
+        return isInsideDateRange(r.action.workOrderOpenDate || r.action.createdAt);
+      }
+
+      if(activeView === "pending" || activeView === "actions" || activeView === "critical"){
+        return isInsideDateRange(r.action.createdAt);
+      }
+
+      return isInsideDateRange(r.action.createdAt);
+    }
+
+    return isInsideDateRange(r.inspection.inspectionDate || r.inspection.createdAt);
+  });
+
   if(activeView === "dashboard") rows = [];
   if(activeView === "actions") rows = rows.filter(r => r.action);
   if(activeView === "pending") rows = rows.filter(r => r.action && isPending(r.action));
@@ -741,8 +799,6 @@ function getRows(){
 
   if(area) rows = rows.filter(r => (r.inspection.location || "Sem área") === area);
   if(status) rows = rows.filter(r => r.action ? statusOf(r.action) === status : statusOf(r.inspection) === status);
-  if(criticalOnly) rows = rows.filter(r => r.action && isCritical(r.action));
-
   if(search){
     rows = rows.filter(r => {
       const text = [
@@ -770,7 +826,7 @@ function renderKpis(){
   const critical = rows.filter(r => isPending(r.action) && isCritical(r.action)).length;
   const rate = total ? Math.round((completed / total) * 100) : 0;
 
-  setText("kpiInspections", visibleInspections.length);
+  setText("kpiInspections", visibleInspections.filter(i => isInsideDateRange(i.inspectionDate || i.createdAt)).length);
   setText("kpiActions", total);
   setText("kpiPending", pending);
   setText("kpiOs", os);
@@ -856,7 +912,7 @@ function renderPreview(){
 
   const tb = $("previewBody");
   if(!rows.length){
-    tb.innerHTML = `<tr><td colspan="7" class="empty">Sem críticas ou OS abertas.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="7" class="empty">Sem pendências ou OS abertas.</td></tr>`;
     return;
   }
 
@@ -888,7 +944,7 @@ function renderTable(rows){
     critical:"Lista de ações críticas"
   };
   $("tableTitle").textContent = titles[activeView] || "Base operacional";
-  $("tableSubtitle").textContent = `${rows.length} registro(s) encontrado(s).`;
+  $("tableSubtitle").textContent = `${rows.length} registro(s) encontrado(s). ${currentPeriodText()}.`;
 
   const tb = $("tableBody");
   if(!rows.length){
@@ -1048,9 +1104,10 @@ function generateReport(type="general"){
       <h1>SAFETY GEMBA WALK</h1>
       <h2>${cfg.title}</h2>
       <p>${cfg.desc}</p>
+      <p><strong>${currentPeriodText()}</strong></p>
     </div>
     <div class="print-kpis">
-      <div><small>Inspeções</small><strong>${visibleInspections.length}</strong></div>
+      <div><small>Inspeções</small><strong>${visibleInspections.filter(i => isInsideDateRange(i.inspectionDate || i.createdAt)).length}</strong></div>
       <div><small>Ações</small><strong>${rows.length}</strong></div>
       <div><small>Pendentes</small><strong>${pending}</strong></div>
       <div><small>Sem OS</small><strong>${direct}</strong></div>
@@ -1132,7 +1189,22 @@ function getActions(i){
 
 function allActionRows(){
   const rows = [];
-  visibleInspections.forEach(i => getActions(i).forEach(a => rows.push({ inspection:i, action:a })));
+
+  visibleInspections.forEach(i => {
+    getActions(i).forEach(a => {
+      const dateToUse =
+        a.completedAt ||
+        a.workOrderOpenDate ||
+        a.createdAt ||
+        i.inspectionDate ||
+        i.createdAt;
+
+      if(isInsideDateRange(dateToUse)){
+        rows.push({ inspection:i, action:a });
+      }
+    });
+  });
+
   return rows;
 }
 
