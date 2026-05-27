@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+from pathlib import Path
+
+html = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
@@ -28,56 +30,45 @@ let allInspections = [];
 let visibleInspections = [];
 let currentUserProfile = null;
 let unsubscribeInspections = null;
-let activeView = "overview";
+let activeView = "dashboard";
 let currentRows = [];
+let currentListTitle = "Base operacional";
 
 const $ = (id) => document.getElementById(id);
 
 window.addEventListener("DOMContentLoaded", () => {
-  const loginScreen = $("loginScreen");
-  const appScreen = $("appScreen");
-  const loginBtn = $("loginBtn");
-  const logoutBtn = $("logoutBtn");
-  const passwordInput = $("password");
+  $("loginBtn").addEventListener("click", login);
+  $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
 
-  loginBtn.addEventListener("click", login);
-  passwordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
-
-  logoutBtn.addEventListener("click", async () => {
+  $("logoutBtn").addEventListener("click", async () => {
     if (unsubscribeInspections) unsubscribeInspections();
     await signOut(auth);
   });
 
   document.querySelectorAll("[data-view]").forEach((button) => {
-    button.addEventListener("click", () => {
-      setDashboardView(button.dataset.view);
-    });
+    button.addEventListener("click", () => setDashboardView(button.dataset.view));
   });
 
-  document.querySelectorAll("[data-report]").forEach((button) => {
-    button.addEventListener("click", () => {
-      setReportMode(button.dataset.report);
-    });
-  });
+  $("btnGeneralReport").addEventListener("click", generateGeneralReport);
+  $("btnRefresh").addEventListener("click", () => render());
 
   $("searchInput").addEventListener("input", render);
   $("areaFilter").addEventListener("change", render);
   $("statusFilter").addEventListener("change", render);
   $("criticalFilter").addEventListener("change", render);
+
   $("detailClose")?.addEventListener("click", closeDetailPanel);
   $("detailBackdrop")?.addEventListener("click", closeDetailPanel);
-  $("btnPrintReport")?.addEventListener("click", () => window.print());
-  $("btnRefresh")?.addEventListener("click", () => render());
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      loginScreen.style.display = "grid";
-      appScreen.style.display = "none";
+      $("loginScreen").style.display = "grid";
+      $("appScreen").style.display = "none";
       return;
     }
 
-    loginScreen.style.display = "none";
-    appScreen.style.display = "grid";
+    $("loginScreen").style.display = "none";
+    $("appScreen").style.display = "grid";
 
     currentUserProfile = await loadUserProfile(user.email);
     $("userName").textContent = currentUserProfile.fullName || user.email;
@@ -90,22 +81,17 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 async function login() {
-  const loginBtn = $("loginBtn");
-  const loginError = $("loginError");
-  const emailInput = $("email");
-  const passwordInput = $("password");
-
-  loginError.textContent = "";
-  loginBtn.disabled = true;
-  loginBtn.textContent = "Entrando...";
+  $("loginError").textContent = "";
+  $("loginBtn").disabled = true;
+  $("loginBtn").textContent = "Entrando...";
 
   try {
-    await signInWithEmailAndPassword(auth, emailInput.value.trim(), passwordInput.value);
+    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
   } catch (error) {
-    loginError.textContent = "Usuário ou senha inválidos.";
+    $("loginError").textContent = "Usuário ou senha inválidos.";
   } finally {
-    loginBtn.disabled = false;
-    loginBtn.textContent = "Entrar";
+    $("loginBtn").disabled = false;
+    $("loginBtn").textContent = "Entrar";
   }
 }
 
@@ -164,25 +150,113 @@ function setDashboardView(view) {
   activeView = view;
   setActiveButton();
   render();
+
+  if (view !== "dashboard") {
+    document.getElementById("operationalSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
-function setReportMode(mode) {
-  if (mode === "print") {
-    window.print();
-    return;
-  }
-  if (mode === "critical") {
-    activeView = "critical";
-  } else if (mode === "pending") {
-    activeView = "pending";
-  } else if (mode === "os") {
-    activeView = "os";
-  } else {
-    activeView = "overview";
-  }
-  setActiveButton();
+function generateGeneralReport() {
+  activeView = "dashboard";
   render();
-  document.getElementById("reportSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const report = $("printReport");
+  const metrics = calculateMetrics();
+
+  report.innerHTML = `
+    <div class="print-page">
+      <div class="print-cover">
+        <div>
+          <h1>SAFETY GEMBA WALK</h1>
+          <h2>Relatório Executivo Geral</h2>
+          <p>Indicadores consolidados de inspeções, ações corretivas, OS abertas e criticidade operacional.</p>
+        </div>
+        <div class="print-logo-mark">A</div>
+      </div>
+
+      <div class="print-block">
+        <h3>Resumo executivo</h3>
+        <div class="print-kpis">
+          <div><small>Inspeções</small><strong>${metrics.inspections}</strong></div>
+          <div><small>Ações</small><strong>${metrics.actions}</strong></div>
+          <div><small>Pendentes</small><strong>${metrics.pending}</strong></div>
+          <div><small>Críticas</small><strong>${metrics.critical}</strong></div>
+          <div><small>OS abertas</small><strong>${metrics.os}</strong></div>
+          <div><small>Conclusão</small><strong>${metrics.completion}%</strong></div>
+        </div>
+      </div>
+
+      <div class="print-block">
+        <h3>Top ações críticas</h3>
+        ${buildCriticalPrintList()}
+      </div>
+
+      <div class="print-block">
+        <h3>OS abertas</h3>
+        ${buildOsPrintTable()}
+      </div>
+
+      <div class="print-footer">
+        Safety Gemba Walk · Plataforma Corporativa de Segurança<br>
+        Desenvolvido por Henrique Vieira
+      </div>
+    </div>
+  `;
+
+  setTimeout(() => window.print(), 250);
+}
+
+function buildCriticalPrintList() {
+  const rows = getAllActionRows()
+    .filter(r => isPending(r.action) && isCritical(r.action))
+    .sort((a,b) => daysSince(b.action.createdAt) - daysSince(a.action.createdAt))
+    .slice(0, 10);
+
+  if (!rows.length) return `<p>Sem ações críticas pendentes.</p>`;
+
+  return `
+    <table class="print-table">
+      <thead><tr><th>Inspeção</th><th>Área</th><th>Inspetor</th><th>Dias</th><th>Risco</th></tr></thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td>${escapeHtml(getInspectionCode(r.inspection))}</td>
+            <td>${escapeHtml(r.inspection.location || "-")}</td>
+            <td>${escapeHtml(getInspectorName(r.inspection, r.action))}</td>
+            <td>${daysSince(r.action.createdAt)}</td>
+            <td>${escapeHtml(r.action.unsafeCondition || "-")}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function buildOsPrintTable() {
+  const rows = getAllActionRows()
+    .filter(r => r.action?.hasWorkOrder)
+    .sort((a,b) => daysSince(b.action.workOrderOpenDate) - daysSince(a.action.workOrderOpenDate))
+    .slice(0, 12);
+
+  if (!rows.length) return `<p>Sem OS abertas.</p>`;
+
+  return `
+    <table class="print-table">
+      <thead><tr><th>OS</th><th>Abertura</th><th>Dias</th><th>Área</th><th>Inspetor</th><th>Risco</th></tr></thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td>${escapeHtml(r.action.workOrderNumber || "-")}</td>
+            <td>${formatDate(r.action.workOrderOpenDate)}</td>
+            <td>${daysSince(r.action.workOrderOpenDate)}</td>
+            <td>${escapeHtml(r.inspection.location || "-")}</td>
+            <td>${escapeHtml(getInspectorName(r.inspection, r.action))}</td>
+            <td>${escapeHtml(r.action.unsafeCondition || "-")}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function firstValidText(values) {
@@ -196,35 +270,20 @@ function firstValidText(values) {
 
 function getInspectorName(inspection, action = null) {
   const name = firstValidText([
-    action?.inspectorName,
-    action?.inspector,
-    action?.createdByName,
-    action?.responsibleName,
-    action?.responsible,
-    action?.userName,
-    inspection?.inspectorName,
-    inspection?.inspector,
-    inspection?.createdByName,
-    inspection?.responsibleName,
-    inspection?.responsible,
-    inspection?.userName,
-    inspection?.user?.fullName,
-    inspection?.user?.name,
-    inspection?.createdBy?.fullName,
-    inspection?.createdBy?.name
+    action?.inspectorName, action?.inspector, action?.createdByName,
+    action?.responsibleName, action?.responsible, action?.userName,
+    inspection?.inspectorName, inspection?.inspector, inspection?.createdByName,
+    inspection?.responsibleName, inspection?.responsible, inspection?.userName,
+    inspection?.user?.fullName, inspection?.user?.name,
+    inspection?.createdBy?.fullName, inspection?.createdBy?.name
   ]);
 
   if (name) return name;
 
   const email = firstValidText([
-    action?.inspectorEmail,
-    action?.email,
-    action?.createdByEmail,
-    inspection?.inspectorEmail,
-    inspection?.email,
-    inspection?.createdByEmail,
-    inspection?.user?.email,
-    inspection?.createdBy?.email
+    action?.inspectorEmail, action?.email, action?.createdByEmail,
+    inspection?.inspectorEmail, inspection?.email, inspection?.createdByEmail,
+    inspection?.user?.email, inspection?.createdBy?.email
   ]);
 
   return email || "-";
@@ -260,8 +319,31 @@ function render() {
   const rows = getRows();
   renderKpis();
   renderCharts();
-  renderReport();
+  renderPendingReport();
+  renderOsTable();
   renderTable(rows);
+  toggleOperationalSection(rows);
+}
+
+function toggleOperationalSection(rows) {
+  const section = $("operationalSection");
+  if (activeView === "dashboard") {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+  const count = rows.length;
+  const titles = {
+    inspections: "Lista de inspeções",
+    actions: "Lista de ações",
+    pending: "Relatório de pendências",
+    os: "Lista de OS abertas",
+    critical: "Lista de ações críticas"
+  };
+
+  $("operationalTitle").textContent = titles[activeView] || "Base operacional";
+  $("operationalSubtitle").textContent = `${count} registro(s) encontrado(s) conforme seleção atual.`;
 }
 
 function getAllActionRows() {
@@ -291,6 +373,8 @@ function getRows() {
     actions.forEach((action) => rows.push({ type: "action", inspection, action }));
   });
 
+  if (activeView === "dashboard") rows = [];
+  if (activeView === "actions") rows = rows.filter(r => r.action);
   if (activeView === "pending") rows = rows.filter(r => r.action && isPending(r.action));
   if (activeView === "critical") rows = rows.filter(r => r.action && isCritical(r.action));
   if (activeView === "os") rows = rows.filter(r => r.action && r.action.hasWorkOrder);
@@ -309,6 +393,7 @@ function getRows() {
   if (search) {
     rows = rows.filter(r => {
       const haystack = [
+        getInspectionCode(r.inspection),
         r.inspection.title,
         r.inspection.location,
         getInspectorName(r.inspection, r.action),
@@ -329,26 +414,36 @@ function getRows() {
   });
 }
 
-function renderKpis() {
+function calculateMetrics() {
   const allActionRows = getAllActionRows();
-  const totalActions = allActionRows.length;
+  const actions = allActionRows.length;
   const completed = allActionRows.filter(r => isCompleted(r.action)).length;
   const pending = allActionRows.filter(r => isPending(r.action)).length;
   const os = allActionRows.filter(r => r.action.hasWorkOrder && isPending(r.action)).length;
   const critical = allActionRows.filter(r => isPending(r.action) && isCritical(r.action)).length;
-  const completionRate = totalActions ? Math.round((completed / totalActions) * 100) : 0;
+  const completion = actions ? Math.round((completed / actions) * 100) : 0;
 
-  setText("kpiInspections", visibleInspections.length);
-  setText("kpiActions", totalActions);
-  setText("kpiPending", pending);
-  setText("kpiCompleted", completed);
-  setText("kpiOs", os);
-  setText("kpiCritical", critical);
-  setText("completionRate", `${completionRate}%`);
-  setText("reportTotalActions", totalActions);
-  setText("reportPending", pending);
-  setText("reportCritical", critical);
-  setText("reportCompletion", `${completionRate}%`);
+  return {
+    inspections: visibleInspections.length,
+    actions, completed, pending, os, critical, completion
+  };
+}
+
+function renderKpis() {
+  const m = calculateMetrics();
+
+  setText("kpiInspections", m.inspections);
+  setText("kpiActions", m.actions);
+  setText("kpiPending", m.pending);
+  setText("kpiCompleted", m.completed);
+  setText("kpiOs", m.os);
+  setText("kpiCritical", m.critical);
+  setText("completionRate", `${m.completion}%`);
+
+  setText("reportTotalActions", m.actions);
+  setText("reportPending", m.pending);
+  setText("reportCritical", m.critical);
+  setText("reportCompletion", `${m.completion}%`);
 }
 
 function renderCharts() {
@@ -381,20 +476,18 @@ function renderCharts() {
   renderBarChart("chartArea", ranking, "Sem pendências por área.");
   renderBarChart("chartAge", age, "Sem pendências.");
   renderBarChart("chartOs", osAge, "Sem OS pendente.");
-}
 
-function renderReport() {
   const rows = getAllActionRows();
   const completed = rows.filter(r => isCompleted(r.action)).length;
   const pending = rows.filter(r => isPending(r.action)).length;
   const critical = rows.filter(r => isPending(r.action) && isCritical(r.action)).length;
-  const normal = Math.max(0, rows.length - completed - pending);
+  const other = Math.max(0, rows.length - completed - pending);
 
   renderDonut("statusDonut", [
     { label: "Pendentes", value: pending },
     { label: "Concluídas", value: completed },
     { label: "Críticas", value: critical },
-    { label: "Outras", value: normal }
+    { label: "Outras", value: other }
   ]);
 
   const byInspector = new Map();
@@ -418,11 +511,40 @@ function renderReport() {
   $("criticalList").innerHTML = criticalRows.length
     ? criticalRows.map(r => `
       <div class="critical-item">
-        <strong>${escapeHtml(r.action.unsafeCondition || r.inspection.title || "Ação crítica")}</strong>
+        <strong>${escapeHtml(getInspectionCode(r.inspection))} · ${escapeHtml(r.action.unsafeCondition || "Ação crítica")}</strong>
         <span>${escapeHtml(r.inspection.location || "-")} · ${daysSince(r.action.createdAt)} dias pendente</span>
       </div>
     `).join("")
     : `<div class="empty">Sem ações críticas pendentes.</div>`;
+}
+
+function renderPendingReport() {
+  const pending = getAllActionRows().filter(r => isPending(r.action));
+  const withOs = pending.filter(r => r.action.hasWorkOrder).length;
+  const withoutOs = pending.length - withOs;
+
+  setText("pendingWithOs", withOs);
+  setText("pendingWithoutOs", withoutOs);
+  setText("pendingTotal", pending.length);
+}
+
+function renderOsTable() {
+  const osRows = getAllActionRows()
+    .filter(r => r.action?.hasWorkOrder)
+    .sort((a,b) => daysSince(b.action.workOrderOpenDate) - daysSince(a.action.workOrderOpenDate))
+    .slice(0, 8);
+
+  $("osPreviewBody").innerHTML = osRows.length
+    ? osRows.map(r => `
+      <tr>
+        <td>${escapeHtml(r.action.workOrderNumber || "-")}</td>
+        <td>${formatDate(r.action.workOrderOpenDate)}</td>
+        <td>${escapeHtml(getInspectorName(r.inspection, r.action))}</td>
+        <td>${escapeHtml(r.inspection.location || "-")}</td>
+        <td>${escapeHtml(r.action.unsafeCondition || "-")}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="5" class="empty-table">Sem OS abertas.</td></tr>`;
 }
 
 function renderBarChart(id, items, emptyText) {
@@ -499,7 +621,10 @@ function renderTable(rows) {
       const actions = inspection.actions || [];
       return `
         <tr>
-          <td><strong>${escapeHtml(inspection.title || "Inspeção")}</strong></td>
+          <td>
+            <strong>${escapeHtml(getInspectionCode(inspection))}</strong>
+            <small>${escapeHtml(inspection.title || "Inspeção")}</small>
+          </td>
           <td>${escapeHtml(inspection.location || "-")}</td>
           <td>${escapeHtml(getInspectorName(inspection, action))}</td>
           <td><span class="pill neutral">Inspeção</span></td>
@@ -519,8 +644,8 @@ function renderTable(rows) {
     return `
       <tr>
         <td>
-          <strong>${escapeHtml(inspection.title || "Inspeção")}</strong>
-          <small>${escapeHtml(action.unsafeCondition || "Ação sem título")}</small>
+          <strong>${escapeHtml(getInspectionCode(inspection))}</strong>
+          <small>${escapeHtml(action.unsafeCondition || inspection.title || "Ação sem título")}</small>
         </td>
         <td>${escapeHtml(inspection.location || "-")}</td>
         <td>${escapeHtml(getInspectorName(inspection, action))}</td>
@@ -549,9 +674,9 @@ window.openDetailPanel = function(rowIndex) {
   const critical = action ? isCritical(action) : false;
   const osDays = action?.workOrderOpenDate ? daysSince(action.workOrderOpenDate) : null;
 
-  $("detailTitle").textContent = inspection.title || "Inspeção";
+  $("detailTitle").textContent = getInspectionCode(inspection);
   $("detailSubtitle").textContent = isInspection
-    ? `Inspeção #${inspection.id}`
+    ? (inspection.title || `Inspeção #${inspection.id}`)
     : (action.unsafeCondition || "Ação sem título");
 
   const statusClass = action ? (isCompleted(action) ? "ok" : "warn") : "neutral";
@@ -573,6 +698,11 @@ window.openDetailPanel = function(rowIndex) {
         <div><small>OS</small><strong>${action?.hasWorkOrder ? escapeHtml(action.workOrderNumber || "-") : "-"}</strong></div>
         <div><small>ID</small><strong>${escapeHtml(inspection.id)}</strong></div>
       </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Risco identificado</h3>
+      <p>${escapeHtml(action?.unsafeCondition || inspection.title || "-")}</p>
     </div>
 
     <div class="detail-section">
@@ -626,6 +756,12 @@ function setActiveButton() {
   });
 }
 
+function getInspectionCode(inspection) {
+  const raw = String(inspection?.id || "").replace(/\D/g, "");
+  const shortId = raw ? raw.slice(-6).padStart(6, "0") : "000000";
+  return `INSPEÇÃO #${shortId}`;
+}
+
 function setText(id, value) {
   const el = $(id);
   if (el) el.textContent = value;
@@ -671,6 +807,12 @@ function formatDateTime(value) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function formatDate(value) {
+  const ms = toMillis(value);
+  if (!ms) return "-";
+  return new Date(ms).toLocaleDateString("pt-BR");
 }
 
 function daysSince(value) {
@@ -723,53 +865,12 @@ body {
   text-align: center;
 }
 
-.login-box h1 {
-  margin: 0 0 14px;
-  font-size: 34px;
-  line-height: 42px;
-  color: #0b2d52;
-}
-
-.login-box p {
-  color: #667892;
-  font-size: 16px;
-  line-height: 24px;
-  margin: 0 0 32px;
-}
-
-.login-box input {
-  width: 100%;
-  height: 58px;
-  border-radius: 16px;
-  border: 1px solid #c8d5e3;
-  padding: 0 16px;
-  font-size: 16px;
-  outline: none;
-}
-
-.login-box input:focus {
-  border-color: #123f6b;
-  box-shadow: 0 0 0 4px rgba(18,63,107,0.12);
-}
-
-.login-box button {
-  width: 100%;
-  height: 58px;
-  border: none;
-  border-radius: 16px;
-  background: #123f6b;
-  color: white;
-  font-size: 18px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.error {
-  min-height: 22px;
-  color: var(--danger);
-  margin-top: 16px;
-  font-weight: 700;
-}
+.login-box h1 { margin: 0 0 14px; font-size: 34px; line-height: 42px; color: #0b2d52; }
+.login-box p { color: #667892; font-size: 16px; line-height: 24px; margin: 0 0 32px; }
+.login-box input { width: 100%; height: 58px; border-radius: 16px; border: 1px solid #c8d5e3; padding: 0 16px; font-size: 16px; outline: none; }
+.login-box input:focus { border-color: #123f6b; box-shadow: 0 0 0 4px rgba(18,63,107,0.12); }
+.login-box button { width: 100%; height: 58px; border: none; border-radius: 16px; background: #123f6b; color: white; font-size: 18px; font-weight: 800; cursor: pointer; }
+.error { min-height: 22px; color: var(--danger); margin-top: 16px; font-weight: 700; }
 
 .app-screen {
   min-height: 100vh;
@@ -822,11 +923,6 @@ body {
   color: var(--primary);
 }
 
-.side-action.gold {
-  background: linear-gradient(135deg, #f5b400, #ffce3a);
-  color: #102646;
-}
-
 .user-box {
   position: absolute;
   left: 26px;
@@ -851,8 +947,7 @@ body {
 .topbar h1 { margin: 0; font-size: 40px; letter-spacing: -1px; }
 .topbar p { margin: 8px 0 0; color: var(--muted); }
 
-.logout,
-.top-action {
+.logout {
   border: none;
   border-radius: 14px;
   padding: 14px 18px;
@@ -861,9 +956,6 @@ body {
   font-weight: 800;
   cursor: pointer;
 }
-
-.top-actions { display: flex; gap: 10px; }
-.top-action.secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--border); }
 
 .kpis {
   display: grid;
@@ -934,9 +1026,7 @@ body {
   margin-bottom: 18px;
 }
 
-.report-grid {
-  grid-template-columns: 1fr 1fr 1fr;
-}
+.report-grid { grid-template-columns: 1fr 1fr 1fr; }
 
 .panel {
   background: var(--surface);
@@ -965,6 +1055,22 @@ body {
 .report-metric small { color: var(--muted); font-weight: 800; }
 .report-metric strong { display: block; margin-top: 6px; font-size: 26px; }
 
+.pending-split {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.pending-card {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  background: #f8fbff;
+}
+
+.pending-card small { color: var(--muted); font-weight: 800; }
+.pending-card strong { display: block; font-size: 30px; margin-top: 8px; }
+
 .bar-row {
   display: grid;
   grid-template-columns: 90px 1fr 34px;
@@ -982,49 +1088,19 @@ body {
   font-size: 12px;
 }
 
-.bar-track {
-  height: 18px;
-  background: var(--surface-2);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--primary), #2d6ca3);
-  border-radius: 999px;
-}
+.bar-track { height: 18px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #2d6ca3); border-radius: 999px; }
 
 .donut-wrap { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: center; }
-.donut {
-  width: 138px;
-  height: 138px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-}
-.donut > div {
-  width: 82px;
-  height: 82px;
-  border-radius: 50%;
-  background: white;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  box-shadow: inset 0 0 0 1px var(--border);
-}
+.donut { width: 138px; height: 138px; border-radius: 50%; display: grid; place-items: center; }
+.donut > div { width: 82px; height: 82px; border-radius: 50%; background: white; display: grid; place-items: center; text-align: center; box-shadow: inset 0 0 0 1px var(--border); }
 .donut strong { font-size: 24px; line-height: 20px; }
 .donut small { color: var(--muted); }
 .donut-legend { display: grid; gap: 8px; }
 .donut-legend span { color: var(--muted); font-size: 13px; }
 .donut-legend i { width: 10px; height: 10px; display: inline-block; border-radius: 99px; margin-right: 8px; }
 
-.critical-item {
-  display: grid;
-  gap: 3px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-}
+.critical-item { display: grid; gap: 3px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .critical-item:last-child { border-bottom: none; }
 .critical-item span { color: var(--muted); font-size: 12px; }
 
@@ -1039,38 +1115,15 @@ tbody tr { transition: .15s; }
 tbody tr:hover { background: #f4f8fc; }
 td small { display: block; color: var(--muted); margin-top: 4px; }
 
-.pill {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
+.pill { display: inline-block; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 800; }
 .pill.ok { color: var(--ok); background: rgba(27,143,77,.10); }
 .pill.warn { color: #9a6a00; background: rgba(249,168,37,.15); }
 .pill.danger { color: white; background: linear-gradient(135deg,#c62828,#ff5252); }
 .pill.neutral { color: var(--primary); background: rgba(21,59,102,.10); }
 
-.detail-btn {
-  border: none;
-  border-radius: 12px;
-  background: var(--primary);
-  color: #fff;
-  padding: 10px 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
+.detail-btn { border: none; border-radius: 12px; background: var(--primary); color: #fff; padding: 10px 14px; font-weight: 800; cursor: pointer; }
 
-.detail-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 26, 47, .35);
-  opacity: 0;
-  pointer-events: none;
-  transition: .2s;
-  z-index: 20;
-}
+.detail-backdrop { position: fixed; inset: 0; background: rgba(8, 26, 47, .35); opacity: 0; pointer-events: none; transition: .2s; z-index: 20; }
 .detail-backdrop.show { opacity: 1; pointer-events: auto; }
 
 .detail-panel {
@@ -1091,104 +1144,56 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   overflow: hidden;
 }
 .detail-panel.show { transform: translateX(0); }
-
-.detail-header {
-  padding: 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
+.detail-header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 16px; }
 .detail-content { padding: 22px; overflow: auto; }
-.detail-close {
-  border: none;
-  background: var(--surface-2);
-  border-radius: 12px;
-  padding: 10px 14px;
-  cursor: pointer;
-  font-weight: 800;
-}
-
+.detail-close { border: none; background: var(--surface-2); border-radius: 12px; padding: 10px 14px; cursor: pointer; font-weight: 800; }
 .detail-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-.detail-hero > div,
-.detail-grid div {
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: #f8fbff;
-  padding: 14px;
-}
-.detail-hero small,
-.detail-grid small {
-  display: block;
-  color: var(--muted);
-  font-weight: 900;
-  margin-bottom: 6px;
-}
-.detail-section {
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 16px;
-  margin-bottom: 14px;
-  background: #fff;
-}
+.detail-hero > div, .detail-grid div { border: 1px solid var(--border); border-radius: 16px; background: #f8fbff; padding: 14px; }
+.detail-hero small, .detail-grid small { display: block; color: var(--muted); font-weight: 900; margin-bottom: 6px; }
+.detail-section { border: 1px solid var(--border); border-radius: 18px; padding: 16px; margin-bottom: 14px; background: #fff; }
 .detail-section.premium { border-left: 5px solid var(--primary); }
 .detail-section h3 { margin: 0 0 12px; }
 .detail-section p { margin: 0; line-height: 1.45; }
 .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .detail-grid strong { word-break: break-word; }
 .timeline { display: grid; gap: 10px; }
-.timeline div {
-  display: grid;
-  grid-template-columns: 14px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  background: #f8fbff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px 12px;
-}
+.timeline div { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 10px; background: #f8fbff; border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; }
 .timeline span { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
 .timeline small { color: var(--muted); font-weight: 800; }
 
-.pdf-link {
-  display: inline-block;
-  background: var(--primary);
-  color: #fff;
-  text-decoration: none;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-weight: 800;
-}
+.pdf-link { display: inline-block; background: var(--primary); color: #fff; text-decoration: none; border-radius: 12px; padding: 10px 14px; font-weight: 800; }
 .pdf-link.big { width: 100%; text-align: center; padding: 14px 18px; }
 .detail-actions { display: flex; justify-content: flex-end; }
-.secondary-btn {
-  border: none;
-  border-radius: 14px;
-  padding: 13px 16px;
-  font-weight: 900;
-  cursor: pointer;
-  background: var(--surface-2);
-  color: var(--text);
-}
+.secondary-btn { border: none; border-radius: 14px; padding: 13px 16px; font-weight: 900; cursor: pointer; background: var(--surface-2); color: var(--text); }
 .muted-text, .empty { color: var(--muted); font-size: 13px; }
 .empty-table { text-align: center; color: var(--muted); padding: 40px; }
 
-.footer {
-  margin-top: 20px;
-  color: var(--muted);
-  font-size: 11px;
-  text-align: center;
-  line-height: 1.6;
-}
+.footer { margin-top: 20px; color: var(--muted); font-size: 11px; text-align: center; line-height: 1.6; }
 .footer strong { color: var(--primary); }
 
+#printReport { display: none; }
+
 @media print {
-  .sidebar, .topbar, .filters, .detail-backdrop, .detail-panel { display: none !important; }
-  .app-screen { display: block !important; }
-  .main { padding: 0; }
   body { background: white; }
-  .panel, .kpi, .executive-summary { box-shadow: none; }
+  body * { visibility: hidden; }
+  #printReport, #printReport * { visibility: visible; }
+  #printReport { display: block; position: absolute; inset: 0; }
+  .print-page { width: 100%; padding: 24px 32px; font-family: "Segoe UI", Arial, sans-serif; color: #0b1f38; }
+  .print-cover { min-height: 210px; border-radius: 0 0 36px 0; background: linear-gradient(135deg,#ffffff 0%,#ffffff 72%,#f1f1f1 72%); border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: flex-end; padding: 30px 36px; }
+  .print-cover h1 { font-size: 34px; margin: 0; color: #0b1f38; }
+  .print-cover h2 { color: #d71920; margin: 8px 0 0; }
+  .print-cover p { max-width: 620px; color: #374151; }
+  .print-logo-mark { width: 72px; height: 72px; border-radius: 18px; background: linear-gradient(135deg,#6f2c7f 0 55%,#ff4b16 55%); color: transparent; }
+  .print-block { margin-top: 22px; border: 1px solid #d5d5d5; padding: 16px; }
+  .print-block h3 { margin: 0 0 12px; color: #6f2c7f; text-align: center; }
+  .print-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .print-kpis div { border: 1px solid #d5d5d5; padding: 10px; background: #f8f8f8; }
+  .print-kpis small { color: #6f2c7f; font-weight: 700; display: block; }
+  .print-kpis strong { font-size: 28px; display: block; margin-top: 6px; }
+  .print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .print-table th, .print-table td { border: 1px solid #d5d5d5; padding: 7px; text-align: left; }
+  .print-table th { color: #6f2c7f; background: #f7f7f7; }
+  .print-footer { margin-top: 22px; text-align: center; color: #777; font-size: 11px; }
 }
 
 @media (max-width: 1100px) {
@@ -1203,9 +1208,8 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   .main { padding: 16px; }
   .kpis { grid-template-columns: 1fr; }
   .topbar { align-items: flex-start; flex-direction: column; }
-  .top-actions, .logout { width: 100%; }
-  .top-actions { flex-direction: column; }
-  .report-metrics { grid-template-columns: 1fr 1fr; }
+  .logout { width: 100%; }
+  .report-metrics, .pending-split { grid-template-columns: 1fr; }
   .donut-wrap { grid-template-columns: 1fr; }
 }
 </style>
@@ -1234,11 +1238,11 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
 
     <div class="nav-title">Navegação</div>
     <nav class="nav">
-      <button data-view="overview" class="active">Dashboard</button>
-      <button data-report="pending">Relatório de pendências</button>
-      <button data-report="critical">Relatório de críticas</button>
-      <button data-report="os">OS abertas</button>
-      <button data-report="print" class="side-action gold">Gerar relatório</button>
+      <button data-view="dashboard" class="active">Dashboard</button>
+      <button data-view="pending">Relatório de pendências</button>
+      <button data-view="critical">Relatório de críticas</button>
+      <button data-view="os">OS abertas</button>
+      <button id="btnGeneralReport" type="button">Gerar relatório geral</button>
     </nav>
 
     <div class="nav-title">Status</div>
@@ -1258,20 +1262,17 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
         <h1>Safety Gemba Walk</h1>
         <p>Painel executivo de inspeções, ações corretivas e gestão operacional.</p>
       </div>
-      <div class="top-actions">
-        <button id="btnPrintReport" class="top-action secondary">Relatório</button>
-        <button id="logoutBtn" class="logout">Sair</button>
-      </div>
+      <button id="logoutBtn" class="logout">Sair</button>
     </div>
 
     <section class="kpis">
-      <button class="kpi" data-view="inspections"><small>Inspeções</small><strong id="kpiInspections">0</strong><span>abrir base</span></button>
-      <button class="kpi" data-view="overview"><small>Ações</small><strong id="kpiActions">0</strong><span>visão geral</span></button>
-      <button class="kpi" data-view="pending"><small>Pendentes</small><strong id="kpiPending">0</strong><span>filtrar pendências</span></button>
-      <button class="kpi" data-view="overview"><small>Concluídas</small><strong id="kpiCompleted">0</strong><span>indicador de fechamento</span></button>
-      <button class="kpi" data-view="os"><small>OS abertas</small><strong id="kpiOs">0</strong><span>filtrar OS</span></button>
-      <button class="kpi" data-view="critical"><small>Críticas</small><strong id="kpiCritical">0</strong><span>prioridade alta</span></button>
-      <button class="kpi" data-view="overview"><small>% conclusão</small><strong id="completionRate">0%</strong><span>performance</span></button>
+      <button class="kpi" data-view="inspections"><small>Inspeções</small><strong id="kpiInspections">0</strong><span>listar inspeções</span></button>
+      <button class="kpi" data-view="actions"><small>Ações</small><strong id="kpiActions">0</strong><span>listar ações</span></button>
+      <button class="kpi" data-view="pending"><small>Pendentes</small><strong id="kpiPending">0</strong><span>listar pendências</span></button>
+      <button class="kpi" data-view="dashboard"><small>Concluídas</small><strong id="kpiCompleted">0</strong><span>indicador executivo</span></button>
+      <button class="kpi" data-view="os"><small>OS abertas</small><strong id="kpiOs">0</strong><span>listar OS</span></button>
+      <button class="kpi" data-view="critical"><small>Críticas</small><strong id="kpiCritical">0</strong><span>listar críticas</span></button>
+      <button class="kpi" data-view="dashboard"><small>% conclusão</small><strong id="completionRate">0%</strong><span>performance geral</span></button>
     </section>
 
     <section class="executive-summary">
@@ -1295,7 +1296,7 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
     </section>
 
     <section class="filters">
-      <input id="searchInput" type="text" placeholder="Buscar por área, inspetor, ação ou OS..." />
+      <input id="searchInput" type="text" placeholder="Buscar por área, inspetor, ação, inspeção ou OS..." />
       <select id="areaFilter"><option value="">Todas as áreas</option></select>
       <select id="statusFilter">
         <option value="">Todos os status</option>
@@ -1344,10 +1345,43 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
       </div>
     </section>
 
+    <section class="panel">
+      <h2>Pendências por tipo</h2>
+      <p>Separação gerencial entre ações com OS e sem OS.</p>
+      <div class="pending-split">
+        <div class="pending-card"><small>Com OS</small><strong id="pendingWithOs">0</strong></div>
+        <div class="pending-card"><small>Sem OS</small><strong id="pendingWithoutOs">0</strong></div>
+        <div class="pending-card"><small>Total pendente</small><strong id="pendingTotal">0</strong></div>
+      </div>
+    </section>
+
     <section class="panel table-panel">
       <div class="table-title">
-        <h2>Base Operacional</h2>
-        <p>Registros filtrados conforme os indicadores selecionados.</p>
+        <h2>Prévia de OS abertas</h2>
+        <p>Lista executiva com número da OS, abertura, inspetor, área e risco identificado.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>OS</th>
+              <th>Abertura</th>
+              <th>Inspetor</th>
+              <th>Área</th>
+              <th>Risco identificado</th>
+            </tr>
+          </thead>
+          <tbody id="osPreviewBody">
+            <tr><td colspan="5" class="empty-table">Carregando OS...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="operationalSection" class="panel table-panel" style="display:none;">
+      <div class="table-title">
+        <h2 id="operationalTitle">Base Operacional</h2>
+        <p id="operationalSubtitle">Clique em um card para listar os registros.</p>
       </div>
       <div class="table-wrap">
         <table>
@@ -1365,7 +1399,7 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
             </tr>
           </thead>
           <tbody id="tableBody">
-            <tr><td colspan="9" class="empty-table">Carregando registros...</td></tr>
+            <tr><td colspan="9" class="empty-table">Selecione um card para visualizar registros.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1390,5 +1424,12 @@ td small { display: block; color: var(--muted); margin-top: 4px; }
   </div>
   <div id="detailContent" class="detail-content"></div>
 </aside>
+
+<div id="printReport"></div>
 </body>
-</html>
+</html>'''
+
+path = Path('/mnt/data/index_dashboard_final_gerencial.html')
+path.write_text(html, encoding='utf-8')
+print(path)
+print(path.stat().st_size)
