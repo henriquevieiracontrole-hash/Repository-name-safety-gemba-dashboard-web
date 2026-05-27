@@ -3,90 +3,101 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Safety Gemba Walk — Dashboard de Inspeções</title>
+<title>Safety Gemba Walk — Dashboard Executivo</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <style>
 :root {
-  --bg: #0f1117;
-  --bg-card: #181b24;
-  --bg-hover: #1f2330;
-  --bg-sidebar: #13151e;
-  --border: #252a36;
-  --text: #e4e7ee;
-  --text2: #8b90a0;
-  --text3: #585d6e;
+  --bg: #f3f4f6;
+  --bg-card: #ffffff;
+  --bg-sidebar: #1e2a3a;
+  --bg-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text2: #64748b;
+  --text3: #94a3b8;
+  --text-sidebar: #cbd5e1;
+  --text-sidebar-muted: #64748b;
+  --primary: #0ea5a0;
+  --primary-bg: rgba(14,165,160,0.08);
+  --primary-light: #e6faf9;
+  --green: #10b981;
+  --green-bg: rgba(16,185,129,0.08);
+  --green-light: #ecfdf5;
   --amber: #f59e0b;
-  --amber-bg: rgba(245,158,11,0.1);
-  --amber-glow: rgba(245,158,11,0.2);
-  --green: #22c55e;
-  --green-bg: rgba(34,197,94,0.1);
+  --amber-bg: rgba(245,158,11,0.08);
+  --amber-light: #fffbeb;
   --red: #ef4444;
-  --red-bg: rgba(239,68,68,0.1);
-  --blue: #3b82f6;
-  --blue-bg: rgba(59,130,246,0.1);
+  --red-bg: rgba(239,68,68,0.08);
+  --red-light: #fef2f2;
+  --blue: #6366f1;
+  --blue-bg: rgba(99,102,241,0.08);
+  --blue-light: #eef2ff;
   --purple: #8b5cf6;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --trans: 0.2s ease;
-  --sidebar-w: 240px;
-  --topbar-h: 60px;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --trans: 0.2s cubic-bezier(0.4,0,0.2,1);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow: 0 4px 6px rgba(0,0,0,0.03), 0 2px 12px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.06);
+  --sidebar-w: 236px;
+  --topbar-h: 62px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{font-size:15px;scroll-behavior:smooth}
+html{font-size:14.5px;scroll-behavior:smooth}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:var(--bg);color:var(--text);
   min-height:100vh;display:flex;
   -webkit-font-smoothing:antialiased;
+  line-height:1.5;
 }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 button{cursor:pointer;font-family:inherit;border:none;outline:none}
-a{color:var(--amber);text-decoration:none}
+a{color:var(--primary);text-decoration:none;font-weight:500}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
 
 /* Sidebar */
 .sidebar{
   width:var(--sidebar-w);background:var(--bg-sidebar);
-  border-right:1px solid var(--border);
   display:flex;flex-direction:column;
   position:fixed;top:0;left:0;bottom:0;z-index:100;
   overflow-y:auto;
 }
 .sidebar-logo{
-  display:flex;align-items:center;gap:10px;
-  padding:0 18px;height:var(--topbar-h);
-  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:11px;
+  padding:0 20px;height:var(--topbar-h);
+  border-bottom:1px solid rgba(255,255,255,0.06);
 }
 .sidebar-logo-icon{
-  width:34px;height:34px;min-width:34px;
-  background:linear-gradient(135deg,var(--amber),#ea580c);
-  border-radius:8px;display:flex;align-items:center;justify-content:center;
-  font-size:16px;font-weight:800;color:#fff;
-  box-shadow:0 0 16px var(--amber-glow);
+  width:36px;height:36px;min-width:36px;
+  background:linear-gradient(135deg,var(--primary),#0891b2);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;font-weight:700;color:#fff;
+  box-shadow:0 4px 12px rgba(14,165,160,0.3);
 }
-.sidebar-logo-text{font-size:1.05rem;font-weight:700;white-space:nowrap}
-.sidebar-nav{flex:1;padding:10px;display:flex;flex-direction:column;gap:3px}
+.sidebar-logo-text{font-size:1.05rem;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-0.01em}
+.sidebar-nav{flex:1;padding:8px;display:flex;flex-direction:column;gap:1px}
 .sidebar-label{
-  font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;
-  color:var(--text3);padding:14px 10px 4px;
+  font-size:0.63rem;text-transform:uppercase;letter-spacing:0.09em;
+  color:var(--text-sidebar-muted);padding:16px 12px 6px;font-weight:600;
 }
 .nav-item{
   display:flex;align-items:center;gap:10px;
   padding:10px 12px;border-radius:var(--radius-sm);
-  color:var(--text2);font-size:0.88rem;font-weight:500;
+  color:var(--text-sidebar);font-size:0.86rem;font-weight:500;
   transition:all var(--trans);background:none;width:100%;text-align:left;
 }
-.nav-item:hover{background:var(--bg-hover);color:var(--text)}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff}
 .nav-item.active{
-  background:var(--amber-bg);color:var(--amber);
-  box-shadow:inset 3px 0 0 var(--amber);
+  background:rgba(14,165,160,0.15);color:var(--primary);
 }
-.nav-item svg{width:18px;height:18px;min-width:18px;opacity:0.7}
+.nav-item svg{width:18px;height:18px;min-width:18px;opacity:0.6}
 .nav-item.active svg{opacity:1}
 .nav-item .badge{
-  margin-left:auto;background:var(--amber);color:#000;
-  font-size:0.65rem;padding:2px 7px;border-radius:9px;font-weight:700;
+  margin-left:auto;background:var(--primary);color:#fff;
+  font-size:0.63rem;padding:2px 7px;border-radius:10px;font-weight:600;min-width:20px;text-align:center;
 }
 
 /* Main */
@@ -95,70 +106,67 @@ a{color:var(--amber);text-decoration:none}
   height:var(--topbar-h);background:var(--bg-card);
   border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 24px;position:sticky;top:0;z-index:50;
+  padding:0 28px;position:sticky;top:0;z-index:50;
+  box-shadow:var(--shadow-sm);
 }
 .topbar-left{display:flex;align-items:center;gap:14px}
-.topbar-title{font-size:1rem;font-weight:600}
-.topbar-right{display:flex;align-items:center;gap:10px}
+.topbar-title{font-size:1.05rem;font-weight:600;color:var(--text);letter-spacing:-0.01em}
+.topbar-right{display:flex;align-items:center;gap:12px}
 .topbar-avatar{
   width:34px;height:34px;border-radius:50%;
-  background:linear-gradient(135deg,var(--amber),#ea580c);
+  background:linear-gradient(135deg,var(--primary),#0891b2);
   display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:0.8rem;color:#fff;
+  font-weight:700;font-size:0.78rem;color:#fff;
 }
 .topbar-conn{
-  width:9px;height:9px;border-radius:50%;
+  width:8px;height:8px;border-radius:50%;
   background:var(--text3);
 }
-.topbar-conn.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.topbar-conn.on{background:var(--green);box-shadow:0 0 6px rgba(16,185,129,0.5)}
 
 /* Page content */
-.page-content{padding:24px;flex:1;overflow-y:auto}
-.page{display:none}
+.page-content{padding:26px 28px;flex:1;overflow-y:auto}
+.page{display:none;animation:fadeIn 0.25s ease}
 .page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
 /* Stat cards */
 .stats-grid{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-  gap:14px;margin-bottom:24px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));
+  gap:16px;margin-bottom:26px;
 }
 .stat-card{
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:18px;
-  transition:all var(--trans);position:relative;overflow:hidden;
+  border-radius:var(--radius);padding:20px 22px;
+  transition:all var(--trans);
+  box-shadow:var(--shadow-sm);
 }
-.stat-card:hover{background:var(--bg-hover);transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,0.4)}
-.stat-card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;
-}
-.stat-card.c-amber::before{background:var(--amber)}
-.stat-card.c-green::before{background:var(--green)}
-.stat-card.c-red::before{background:var(--red)}
-.stat-card.c-blue::before{background:var(--blue)}
-.stat-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
-.stat-card-label{font-size:0.75rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;font-weight:500}
+.stat-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+.stat-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.stat-card-label{font-size:0.75rem;color:var(--text3);font-weight:500;letter-spacing:0.01em}
 .stat-card-icon{
-  width:36px;height:36px;border-radius:var(--radius-sm);
-  display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;font-size:0;
 }
-.stat-card-icon.amber{background:var(--amber-bg);color:var(--amber)}
-.stat-card-icon.green{background:var(--green-bg);color:var(--green)}
-.stat-card-icon.red{background:var(--red-bg);color:var(--red)}
-.stat-card-icon.blue{background:var(--blue-bg);color:var(--blue)}
-.stat-card-icon svg{width:18px;height:18px}
-.stat-card-value{font-size:1.7rem;font-weight:700;margin-bottom:2px}
+.stat-card-icon.teal{background:var(--primary-light);color:var(--primary)}
+.stat-card-icon.green{background:var(--green-light);color:var(--green)}
+.stat-card-icon.amber{background:var(--amber-light);color:var(--amber)}
+.stat-card-icon.red{background:var(--red-light);color:var(--red)}
+.stat-card-icon svg{width:19px;height:19px}
+.stat-card-value{font-size:1.85rem;font-weight:700;margin-bottom:2px;color:var(--text);letter-spacing:-0.02em}
 .stat-card-sub{font-size:0.78rem;color:var(--text2)}
 
 /* Charts */
-.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
-@media(max-width:900px){.charts-grid{grid-template-columns:1fr}}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px}
+@media(max-width:960px){.charts-grid{grid-template-columns:1fr}}
 .chart-card{
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:18px;
+  border-radius:var(--radius);padding:20px 22px;
+  box-shadow:var(--shadow-sm);
 }
 .chart-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.chart-card-title{font-weight:600;font-size:0.9rem}
-.chart-card-badge{font-size:0.68rem;padding:3px 9px;border-radius:var(--radius-sm);background:var(--bg-hover);color:var(--text2)}
+.chart-card-title{font-weight:600;font-size:0.88rem;color:var(--text)}
+.chart-card-badge{font-size:0.68rem;padding:3px 9px;border-radius:var(--radius-sm);background:var(--bg);color:var(--text2);font-weight:500}
 .chart-wrap{position:relative;width:100%}
 .chart-wrap canvas{width:100%!important}
 
@@ -166,125 +174,136 @@ a{color:var(--amber);text-decoration:none}
 .table-card{
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:var(--radius);overflow:hidden;margin-bottom:24px;
+  box-shadow:var(--shadow-sm);
 }
 .table-header{
   display:flex;justify-content:space-between;align-items:center;
-  padding:14px 18px;border-bottom:1px solid var(--border);
+  padding:14px 20px;border-bottom:1px solid var(--border);
 }
-.table-title{font-weight:600;font-size:0.9rem}
+.table-title{font-weight:600;font-size:0.88rem;color:var(--text)}
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
-thead{background:var(--bg-hover)}
+thead{background:var(--bg)}
 th{
-  padding:11px 14px;text-align:left;
+  padding:11px 16px;text-align:left;
   font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;
   color:var(--text3);font-weight:600;white-space:nowrap;
 }
-td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:0.85rem}
+td{padding:11px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;color:var(--text)}
 tbody tr{transition:background var(--trans)}
 tbody tr:hover{background:var(--bg-hover)}
 tbody tr.clickable{cursor:pointer}
 tbody tr:last-child td{border-bottom:none}
-.cell-id{font-family:'SF Mono','Fira Code',monospace;font-size:0.75rem;color:var(--amber);opacity:0.8}
+.cell-id{font-family:'SF Mono','JetBrains Mono','Fira Code',monospace;font-size:0.73rem;color:var(--primary);font-weight:500;opacity:0.8}
 
 /* Status pills */
 .status-pill{
   display:inline-flex;align-items:center;gap:5px;
-  padding:3px 10px;border-radius:12px;font-size:0.73rem;font-weight:600;
+  padding:3px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;
   white-space:nowrap;
 }
-.status-pill .sdot{width:7px;height:7px;border-radius:50%}
-.status-pill.open{background:var(--green-bg);color:var(--green)} .status-pill.open .sdot{background:var(--green)}
-.status-pill.pending{background:var(--amber-bg);color:var(--amber)} .status-pill.pending .sdot{background:var(--amber)}
-.status-pill.closed{background:var(--blue-bg);color:var(--blue)} .status-pill.closed .sdot{background:var(--blue)}
-.status-pill.critical{background:var(--red-bg);color:var(--red)} .status-pill.critical .sdot{background:var(--red)}
-.status-pill.overdue{background:var(--red-bg);color:var(--red)} .status-pill.overdue .sdot{background:var(--red)}
+.status-pill .sdot{width:6px;height:6px;border-radius:50%}
+.status-pill.open{background:var(--green-light);color:var(--green)} .status-pill.open .sdot{background:var(--green)}
+.status-pill.pending{background:var(--amber-light);color:var(--amber)} .status-pill.pending .sdot{background:var(--amber)}
+.status-pill.closed{background:var(--blue-light);color:var(--blue)} .status-pill.closed .sdot{background:var(--blue)}
+.status-pill.critical{background:var(--red-light);color:var(--red)} .status-pill.critical .sdot{background:var(--red)}
+.status-pill.overdue{background:var(--red-light);color:var(--red)} .status-pill.overdue .sdot{background:var(--red)}
 
 /* Buttons */
 .btn{
-  padding:7px 13px;border-radius:var(--radius-sm);
+  padding:7px 14px;border-radius:var(--radius-sm);
   font-size:0.78rem;font-weight:500;transition:all var(--trans);
-  display:inline-flex;align-items:center;gap:5px;
+  display:inline-flex;align-items:center;gap:6px;
 }
-.btn-amber{background:var(--amber);color:#000}
-.btn-amber:hover{background:#d97706;box-shadow:0 0 12px var(--amber-glow)}
-.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
-.btn-outline:hover{background:var(--bg-hover);color:var(--text)}
-.btn-sm{padding:4px 9px;font-size:0.7rem}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:#0d9488;box-shadow:0 4px 12px rgba(14,165,160,0.3)}
+.btn-outline{background:var(--bg-card);border:1px solid var(--border);color:var(--text2)}
+.btn-outline:hover{background:var(--bg);color:var(--text)}
+.btn-sm{padding:5px 10px;font-size:0.7rem}
 .btn svg{width:14px;height:14px}
 
 /* Modal */
 .modal-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,0.65);
-  backdrop-filter:blur(3px);z-index:200;
+  position:fixed;inset:0;background:rgba(15,23,42,0.45);
+  backdrop-filter:blur(4px);z-index:200;
   display:flex;align-items:center;justify-content:center;
-  opacity:0;visibility:hidden;transition:all 0.2s;
+  opacity:0;visibility:hidden;transition:all 0.25s;
 }
 .modal-overlay.open{opacity:1;visibility:visible}
 .modal{
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);width:92%;max-width:680px;
+  border-radius:var(--radius);width:92%;max-width:700px;
   max-height:85vh;overflow-y:auto;
-  transform:translateY(16px) scale(0.97);
-  transition:all 0.2s;
+  transform:translateY(12px) scale(0.98);
+  transition:all 0.25s cubic-bezier(0.4,0,0.2,1);
+  box-shadow:0 20px 60px rgba(0,0,0,0.12);
 }
 .modal-overlay.open .modal{transform:translateY(0) scale(1)}
 .modal-header{
   display:flex;justify-content:space-between;align-items:center;
-  padding:16px 20px;border-bottom:1px solid var(--border);
+  padding:18px 22px;border-bottom:1px solid var(--border);
   position:sticky;top:0;background:var(--bg-card);z-index:1;
   border-radius:var(--radius) var(--radius) 0 0;
 }
-.modal-title{font-size:1.05rem;font-weight:600}
+.modal-title{font-size:1.05rem;font-weight:600;color:var(--text)}
 .modal-close{
-  width:30px;height:30px;border-radius:50%;background:var(--bg-hover);
+  width:30px;height:30px;border-radius:50%;background:var(--bg);
   color:var(--text2);display:flex;align-items:center;justify-content:center;
   transition:all var(--trans);font-size:1.1rem;
 }
 .modal-close:hover{background:var(--border);color:var(--text)}
-.modal-body{padding:20px}
-.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.modal-body{padding:22px}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
 
 .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .detail-grid .full{grid-column:1/-1}
-.detail-label{font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px}
-.detail-value{font-size:0.9rem;font-weight:500}
+.detail-label{font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px;font-weight:500}
+.detail-value{font-size:0.9rem;font-weight:500;color:var(--text)}
 
 /* Actions sub-table */
-.action-list{margin-top:16px}
+.action-list{margin-top:18px}
 .action-item{
-  background:var(--bg-hover);border:1px solid var(--border);
-  border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:13px 16px;margin-bottom:9px;
 }
 .action-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.action-cond{font-weight:600;font-size:0.85rem}
-.action-desc{color:var(--text2);font-size:0.8rem;line-height:1.5}
-.action-meta{display:flex;gap:12px;margin-top:6px;font-size:0.73rem;color:var(--text3)}
+.action-cond{font-weight:600;font-size:0.85rem;color:var(--text)}
+.action-desc{color:var(--text2);font-size:0.8rem;line-height:1.55}
+.action-meta{display:flex;gap:14px;margin-top:6px;font-size:0.73rem;color:var(--text3)}
 
 /* Empty / loading */
-.empty-state{text-align:center;padding:40px 20px;color:var(--text3)}
-.empty-state svg{width:44px;height:44px;margin-bottom:12px;opacity:0.3}
+.empty-state{text-align:center;padding:44px 20px;color:var(--text3)}
+.empty-state svg{width:44px;height:44px;margin-bottom:12px;opacity:0.25}
 .empty-state p{font-size:0.85rem}
 
 /* Toast */
 .toast{
-  position:fixed;bottom:20px;right:20px;z-index:300;
+  position:fixed;bottom:22px;right:22px;z-index:300;
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:var(--radius);padding:12px 18px;
-  font-size:0.83rem;font-weight:500;
-  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  border-radius:var(--radius);padding:13px 20px;
+  font-size:0.83rem;font-weight:500;color:var(--text);
+  box-shadow:0 12px 40px rgba(0,0,0,0.1);
   transform:translateY(100px);opacity:0;
   transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
 }
 .toast.show{transform:translateY(0);opacity:1}
-.toast.ok{border-color:var(--green);background:var(--green-bg)}
-.toast.err{border-color:var(--red);background:var(--red-bg)}
+.toast.ok{border-color:var(--green)}
+.toast.err{border-color:var(--red)}
 
 /* Report */
-.report-section{margin-bottom:20px}
-.report-section h3{font-size:0.95rem;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.report-row{display:flex;justify-content:space-between;padding:6px 0;font-size:0.85rem}
-.report-row .val{font-weight:600}
+.report-section{margin-bottom:22px}
+.report-section h3{font-size:0.95rem;font-weight:600;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);color:var(--text)}
+.report-row{display:flex;justify-content:space-between;padding:7px 0;font-size:0.85rem;color:var(--text2)}
+.report-row .val{font-weight:600;color:var(--text)}
+
+/* Print */
+@media print{
+  .sidebar,.topbar,.btn,.modal-overlay{display:none!important}
+  .main{margin-left:0!important}
+  .page-content{padding:0!important}
+  .stat-card,.chart-card,.table-card{box-shadow:none!important;border:1px solid #ddd!important;break-inside:avoid}
+  body{background:#fff!important}
+}
 
 /* Responsive */
 @media(max-width:768px){
@@ -343,8 +362,8 @@ tbody tr:last-child td{border-bottom:none}
       <span class="topbar-title" id="topbar-title">Dashboard de Inspeções</span>
     </div>
     <div class="topbar-right">
-      <span class="topbar-conn" id="connDot" title="Firestore status"></span>
-      <span style="font-size:0.78rem;color:var(--text2)" id="connLabel">Offline</span>
+      <span style="font-size:0.76rem;color:var(--text2);font-weight:500" id="connLabel">Offline</span>
+      <span class="topbar-conn" id="connDot" title="Status do Firestore"></span>
       <div class="topbar-avatar">SG</div>
     </div>
   </header>
@@ -353,23 +372,23 @@ tbody tr:last-child td{border-bottom:none}
     <!-- Dashboard -->
     <div class="page active" id="page-dashboard">
       <div class="stats-grid" id="statsGrid">
-        <div class="stat-card c-amber">
+        <div class="stat-card">
           <div class="stat-card-header">
             <span class="stat-card-label">Total de Inspeções</span>
-            <span class="stat-card-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>
+            <span class="stat-card-icon teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>
           </div>
           <div class="stat-card-value" id="statTotal">0</div>
           <div class="stat-card-sub">inspeções registradas</div>
         </div>
-        <div class="stat-card c-green">
+        <div class="stat-card">
           <div class="stat-card-header">
             <span class="stat-card-label">Ações em Aberto</span>
-            <span class="stat-card-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+            <span class="stat-card-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
           </div>
           <div class="stat-card-value" id="statOpen">0</div>
           <div class="stat-card-sub">ações pendentes</div>
         </div>
-        <div class="stat-card c-red">
+        <div class="stat-card">
           <div class="stat-card-header">
             <span class="stat-card-label">Condições Críticas</span>
             <span class="stat-card-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
@@ -377,10 +396,10 @@ tbody tr:last-child td{border-bottom:none}
           <div class="stat-card-value" id="statCritical">0</div>
           <div class="stat-card-sub">ações críticas</div>
         </div>
-        <div class="stat-card c-blue">
+        <div class="stat-card">
           <div class="stat-card-header">
             <span class="stat-card-label">OS Abertas</span>
-            <span class="stat-card-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+            <span class="stat-card-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
           </div>
           <div class="stat-card-value" id="statWO">0</div>
           <div class="stat-card-sub">ordens de serviço</div>
@@ -406,7 +425,7 @@ tbody tr:last-child td{border-bottom:none}
 
       <div class="table-card">
         <div class="table-header">
-          <span class="table-title">Últimas Inspeções</span>
+          <span class="table-title">&Uacute;ltimas Inspe&ccedil;&otilde;es</span>
           <div style="display:flex;gap:8px">
             <button class="btn btn-outline btn-sm" onclick="refreshAll()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
@@ -416,24 +435,24 @@ tbody tr:last-child td{border-bottom:none}
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Título</th><th>Local</th><th>Inspetor</th><th>Status</th><th>Data</th></tr></thead>
-            <tbody id="inspectionsTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma inspeção encontrada</p></div></td></tr></tbody>
+            <thead><tr><th>ID</th><th>T&iacute;tulo</th><th>Local</th><th>Inspetor</th><th>Status</th><th>Data</th></tr></thead>
+            <tbody id="inspectionsTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma inspe&ccedil;&atilde;o encontrada</p></div></td></tr></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- Pendências -->
+    <!-- Pend&ecirc;ncias -->
     <div class="page" id="page-pendentes">
       <div class="table-card">
         <div class="table-header">
-          <span class="table-title">Ações Pendentes</span>
-          <span style="font-size:0.8rem;color:var(--text3)" id="pendingCount">0 ações</span>
+          <span class="table-title">A&ccedil;&otilde;es Pendentes</span>
+          <span style="font-size:0.8rem;color:var(--text3);font-weight:500" id="pendingCount">0 a&ccedil;&otilde;es</span>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Inspeção</th><th>Condição Insegura</th><th>Ação Imediata</th><th>OS?</th><th>Status</th><th>Data</th></tr></thead>
-            <tbody id="pendingTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma ação pendente</p></div></td></tr></tbody>
+            <thead><tr><th>Inspe&ccedil;&atilde;o</th><th>Condi&ccedil;&atilde;o Insegura</th><th>A&ccedil;&atilde;o Imediata</th><th>OS?</th><th>Status</th><th>Data</th></tr></thead>
+            <tbody id="pendingTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma a&ccedil;&atilde;o pendente</p></div></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -443,39 +462,39 @@ tbody tr:last-child td{border-bottom:none}
     <div class="page" id="page-os">
       <div class="table-card">
         <div class="table-header">
-          <span class="table-title">Ordens de Serviço Abertas</span>
-          <span style="font-size:0.8rem;color:var(--text3)" id="osCount">0 OS</span>
+          <span class="table-title">Ordens de Servi&ccedil;o Abertas</span>
+          <span style="font-size:0.8rem;color:var(--text3);font-weight:500" id="osCount">0 OS</span>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>OS Nº</th><th>Condição</th><th>Inspeção</th><th>Local</th><th>Abertura</th><th>Status</th></tr></thead>
+            <thead><tr><th>OS N&ordm;</th><th>Condi&ccedil;&atilde;o</th><th>Inspe&ccedil;&atilde;o</th><th>Local</th><th>Abertura</th><th>Status</th></tr></thead>
             <tbody id="osTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma OS aberta</p></div></td></tr></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- Críticas -->
+    <!-- Cr&iacute;ticas -->
     <div class="page" id="page-criticas">
       <div class="table-card">
         <div class="table-header">
-          <span class="table-title">Condições Críticas</span>
-          <span style="font-size:0.8rem;color:var(--text3)" id="criticalCount">0 críticas</span>
+          <span class="table-title">Condi&ccedil;&otilde;es Cr&iacute;ticas</span>
+          <span style="font-size:0.8rem;color:var(--text3);font-weight:500" id="criticalCount">0 cr&iacute;ticas</span>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Inspeção</th><th>Local</th><th>Condição Insegura</th><th>Descrição</th><th>Ação Imediata</th><th>Status</th></tr></thead>
-            <tbody id="criticalTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma condição crítica</p></div></td></tr></tbody>
+            <thead><tr><th>Inspe&ccedil;&atilde;o</th><th>Local</th><th>Condi&ccedil;&atilde;o Insegura</th><th>Descri&ccedil;&atilde;o</th><th>A&ccedil;&atilde;o Imediata</th><th>Status</th></tr></thead>
+            <tbody id="criticalTable"><tr><td colspan="6"><div class="empty-state"><p>Nenhuma condi&ccedil;&atilde;o cr&iacute;tica</p></div></td></tr></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- Relatório -->
+    <!-- Relat&oacute;rio -->
     <div class="page" id="page-relatorio">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-        <h2 style="font-size:1.15rem;font-weight:600">Relatório Geral de Segurança</h2>
-        <button class="btn btn-amber" onclick="printReport()">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px">
+        <h2 style="font-size:1.15rem;font-weight:600;color:var(--text);letter-spacing:-0.01em">Relat&oacute;rio Geral de Seguran&ccedil;a</h2>
+        <button class="btn btn-primary" onclick="printReport()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 12H4a2 2 0 00-2 2v5a2 2 0 002 2h16a2 2 0 002-2v-5a2 2 0 00-2-2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
           Imprimir
         </button>
@@ -483,14 +502,14 @@ tbody tr:last-child td{border-bottom:none}
       <div id="reportContent">
         <div class="report-section">
           <h3>Resumo</h3>
-          <div class="report-row"><span>Total de Inspeções</span><span class="val" id="rptTotal">0</span></div>
-          <div class="report-row"><span>Ações Totais Registradas</span><span class="val" id="rptActions">0</span></div>
-          <div class="report-row"><span>Ações Pendentes</span><span class="val" id="rptPending">0</span></div>
-          <div class="report-row"><span>Ordens de Serviço Abertas</span><span class="val" id="rptWO">0</span></div>
-          <div class="report-row"><span>Condições Críticas</span><span class="val" id="rptCritical">0</span></div>
+          <div class="report-row"><span>Total de Inspe&ccedil;&otilde;es</span><span class="val" id="rptTotal">0</span></div>
+          <div class="report-row"><span>A&ccedil;&otilde;es Totais Registradas</span><span class="val" id="rptActions">0</span></div>
+          <div class="report-row"><span>A&ccedil;&otilde;es Pendentes</span><span class="val" id="rptPending">0</span></div>
+          <div class="report-row"><span>Ordens de Servi&ccedil;o Abertas</span><span class="val" id="rptWO">0</span></div>
+          <div class="report-row"><span>Condi&ccedil;&otilde;es Cr&iacute;ticas</span><span class="val" id="rptCritical">0</span></div>
         </div>
         <div class="report-section">
-          <h3>Inspeções por Status</h3>
+          <h3>Inspe&ccedil;&otilde;es por Status</h3>
           <div id="rptStatuses"></div>
         </div>
         <div class="report-section">
@@ -510,12 +529,12 @@ tbody tr:last-child td{border-bottom:none}
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <span class="modal-title" id="modalTitle">Detalhes da Inspeção</span>
+      <span class="modal-title" id="modalTitle">Detalhes da Inspe&ccedil;&atilde;o</span>
       <button class="modal-close" onclick="closeModal()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="detail-grid" id="modalGrid"></div>
-      <div class="action-list" id="modalActions"><h4 style="margin-bottom:10px;font-size:0.9rem">Ações Registradas</h4></div>
+      <div class="action-list" id="modalActions"><h4 style="margin-bottom:10px;font-size:0.9rem;color:var(--text)">A&ccedil;&otilde;es Registradas</h4></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline btn-sm" id="modalPdfBtn" style="display:none" onclick="openPdf()">&#128196; Abrir PDF</button>
@@ -528,7 +547,7 @@ tbody tr:last-child td{border-bottom:none}
 <div class="toast" id="toast"></div>
 
 <!-- ============================================================
-     Firebase + Lógica da Aplicação
+     Firebase + L&oacute;gica da Aplica&ccedil;&atilde;o
      ============================================================ -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
@@ -674,13 +693,13 @@ function renderCharts() {
     inspections.forEach(i => { const s = map2[(i.status||'').toLowerCase()] || i.status || 'Outro'; counts[s] = (counts[s]||0) + 1; });
     const labels = Object.keys(counts);
     const data = Object.values(counts);
-    const colors = { 'Concluído':'rgba(34,197,94,0.75)', 'Pendente':'rgba(245,158,11,0.75)', 'Em Andamento':'rgba(59,130,246,0.75)', 'Crítico':'rgba(239,68,68,0.75)', 'Outro':'rgba(139,92,246,0.75)' };
+    const colors = { 'Concluído':'rgba(16,185,129,0.75)', 'Pendente':'rgba(245,158,11,0.75)', 'Em Andamento':'rgba(99,102,241,0.75)', 'Crítico':'rgba(239,68,68,0.75)', 'Outro':'rgba(139,92,246,0.75)' };
 
     destroyChart('status');
     charts.status = new Chart(ctx1, {
       type:'doughnut',
       data:{ labels, datasets:[{ data, backgroundColor:labels.map(l=>colors[l]||'rgba(139,92,246,0.75)'), borderWidth:0 }] },
-      options:{ responsive:true, maintainAspectRatio:false, cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ color:'#8b90a0', padding:14, usePointStyle:true, font:{size:11} } } } }
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ position:'bottom', labels:{ color:'#64748b', padding:16, usePointStyle:true, font:{size:11,family:'Inter'} } } } }
     });
   }
 
@@ -692,8 +711,8 @@ function renderCharts() {
     destroyChart('location');
     charts.location = new Chart(ctx2, {
       type:'bar',
-      data:{ labels:sorted.map(s=>s[0]), datasets:[{ data:sorted.map(s=>s[1]), backgroundColor:'rgba(245,158,11,0.7)', borderRadius:6, borderSkipped:false }] },
-      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ grid:{ color:'rgba(37,42,54,0.5)' }, ticks:{ color:'#585d6e', stepSize:1 } }, y:{ grid:{ display:false }, ticks:{ color:'#8b90a0', font:{size:11} } } } }
+      data:{ labels:sorted.map(s=>s[0]), datasets:[{ data:sorted.map(s=>s[1]), backgroundColor:'rgba(14,165,160,0.7)', borderRadius:5, borderSkipped:false }] },
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ grid:{ color:'rgba(226,232,240,0.6)' }, ticks:{ color:'#94a3b8', stepSize:1 } }, y:{ grid:{ display:false }, ticks:{ color:'#64748b', font:{size:11,family:'Inter'} } } } }
     });
   }
 }
@@ -702,7 +721,7 @@ function renderCharts() {
 function renderInspectionsTable() {
   const tb = document.getElementById('inspectionsTable');
   if (!tb) return;
-  if (!inspections.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><p>Nenhuma inspeção encontrada</p></div></td></tr>'; return; }
+  if (!inspections.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><p>Nenhuma inspe&ccedil;&atilde;o encontrada</p></div></td></tr>'; return; }
   tb.innerHTML = inspections.slice(0,15).map(i => `
     <tr class="clickable" onclick="window._openModal('${i.id}')">
       <td><span class="cell-id">#${i.id.slice(0,8)}</span></td>
@@ -719,15 +738,15 @@ function renderPendingTable() {
   const acts = allActions().filter(a => (a.status||'').toLowerCase() === 'pending' || (a.status||'').toLowerCase() === 'pendente');
   const tb = document.getElementById('pendingTable');
   const cnt = document.getElementById('pendingCount');
-  if (cnt) cnt.textContent = acts.length + ' ações';
+  if (cnt) cnt.textContent = acts.length + ' a&ccedil;&otilde;es';
   if (!tb) return;
-  if (!acts.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>&#10003; Nenhuma ação pendente</p></div></td></tr>'; return; }
+  if (!acts.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>&#10003; Nenhuma a&ccedil;&atilde;o pendente</p></div></td></tr>'; return; }
   tb.innerHTML = acts.map(a => `
     <tr class="clickable" onclick="window._openModal('${a._inspId}')">
       <td>${esc(a._inspTitle)}</td>
       <td><strong>${esc(a.unsafeCondition||'—')}</strong></td>
       <td>${esc(a.immediateAction||'—')}</td>
-      <td>${a.hasWorkOrder ? '<span style="color:var(--amber);font-weight:600">Sim — ' + esc(a.workOrderNumber||'N/A') + '</span>' : 'Não'}</td>
+      <td>${a.hasWorkOrder ? '<span style="color:var(--primary);font-weight:600">Sim — ' + esc(a.workOrderNumber||'N/A') + '</span>' : 'Não'}</td>
       <td>${statusPill(a.status)}</td>
       <td>${fmtDate(a.createdAt)}</td>
     </tr>
@@ -757,9 +776,9 @@ function renderCriticalTable() {
   const acts = allActions().filter(a => (a.status||'').toLowerCase() === 'critical' || (a.status||'').toLowerCase() === 'crítico');
   const tb = document.getElementById('criticalTable');
   const cnt = document.getElementById('criticalCount');
-  if (cnt) cnt.textContent = acts.length + ' críticas';
+  if (cnt) cnt.textContent = acts.length + ' cr&iacute;ticas';
   if (!tb) return;
-  if (!acts.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>&#10003; Nenhuma condição crítica</p></div></td></tr>'; return; }
+  if (!acts.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state" style="padding:30px"><p>&#10003; Nenhuma condi&ccedil;&atilde;o cr&iacute;tica</p></div></td></tr>'; return; }
   tb.innerHTML = acts.map(a => `
     <tr class="clickable" onclick="window._openModal('${a._inspId}')">
       <td>${esc(a._inspTitle)}</td>
@@ -778,15 +797,15 @@ window._openModal = function(id) {
   const insp = inspections.find(i => i.id === id);
   if (!insp) return;
   _modalPdf = insp.pdfUrl || null;
-  document.getElementById('modalTitle').textContent = insp.title || 'Inspeção #' + id.slice(0,8);
+  document.getElementById('modalTitle').textContent = insp.title || 'Inspe&ccedil;&atilde;o #' + id.slice(0,8);
   const grid = document.getElementById('modalGrid');
   grid.innerHTML = `
-    <div><div class="detail-label">Título</div><div class="detail-value">${esc(insp.title||'—')}</div></div>
+    <div><div class="detail-label">T&iacute;tulo</div><div class="detail-value">${esc(insp.title||'—')}</div></div>
     <div><div class="detail-label">Local</div><div class="detail-value">${esc(insp.location||'—')}</div></div>
     <div><div class="detail-label">Inspetor</div><div class="detail-value">${esc(insp.inspectorName || insp.inspector || '—')}</div></div>
     <div><div class="detail-label">Status</div><div class="detail-value">${statusPill(insp.status)}</div></div>
-    <div><div class="detail-label">Data de Criação</div><div class="detail-value">${fmtDate(insp.createdAt)}</div></div>
-    <div><div class="detail-label">Atualização</div><div class="detail-value">${fmtDate(insp.updatedAt)}</div></div>
+    <div><div class="detail-label">Data de Cria&ccedil;&atilde;o</div><div class="detail-value">${fmtDate(insp.createdAt)}</div></div>
+    <div><div class="detail-label">Atualiza&ccedil;&atilde;o</div><div class="detail-value">${fmtDate(insp.updatedAt)}</div></div>
     <div class="full"><div class="detail-label">Document ID</div><div class="detail-value" style="font-family:monospace;font-size:0.75rem;color:var(--text3);word-break:break-all">${insp.id}</div></div>
   `;
 
@@ -796,17 +815,17 @@ window._openModal = function(id) {
   const acts = getActions(insp);
   const actDiv = document.getElementById('modalActions');
   if (!acts.length) {
-    actDiv.innerHTML = '<h4 style="margin-bottom:10px;font-size:0.9rem">Ações Registradas</h4><p style="color:var(--text3);font-size:0.83rem">Nenhuma ação registrada.</p>';
+    actDiv.innerHTML = '<h4 style="margin-bottom:10px;font-size:0.9rem;color:var(--text)">A&ccedil;&otilde;es Registradas</h4><p style="color:var(--text3);font-size:0.83rem">Nenhuma a&ccedil;&atilde;o registrada.</p>';
   } else {
-    actDiv.innerHTML = '<h4 style="margin-bottom:10px;font-size:0.9rem">Ações Registradas (' + acts.length + ')</h4>' + acts.map(a => `
+    actDiv.innerHTML = '<h4 style="margin-bottom:10px;font-size:0.9rem;color:var(--text)">A&ccedil;&otilde;es Registradas (' + acts.length + ')</h4>' + acts.map(a => `
       <div class="action-item">
         <div class="action-header">
-          <span class="action-cond">${esc(a.unsafeCondition||'Condição não especificada')}</span>
+          <span class="action-cond">${esc(a.unsafeCondition||'Condi&ccedil;&atilde;o n&atilde;o especificada')}</span>
           ${statusPill(a.status)}
         </div>
         ${a.description ? '<div class="action-desc">'+esc(a.description)+'</div>' : ''}
         <div class="action-meta">
-          ${a.immediateAction ? '<span>Ação: '+esc(a.immediateAction)+'</span>' : ''}
+          ${a.immediateAction ? '<span>A&ccedil;&atilde;o: '+esc(a.immediateAction)+'</span>' : ''}
           ${a.hasWorkOrder ? '<span>OS: <strong>'+esc(a.workOrderNumber||'N/A')+'</strong></span>' : ''}
           ${a.workOrderOpenDate ? '<span>Abertura OS: '+fmtDate(a.workOrderOpenDate)+'</span>' : ''}
         </div>
@@ -860,9 +879,9 @@ function goPage(p) {
   const nav = document.querySelector('[data-page="'+p+'"]');
   if (nav) nav.classList.add('active');
   const titles = {
-    dashboard:'Dashboard de Inspeções', pendentes:'Ações Pendentes',
-    os:'Ordens de Serviço Abertas', criticas:'Condições Críticas',
-    relatorio:'Relatório Geral de Segurança'
+    dashboard:'Dashboard de Inspe&ccedil;&otilde;es', pendentes:'A&ccedil;&otilde;es Pendentes',
+    os:'Ordens de Servi&ccedil;o Abertas', criticas:'Condi&ccedil;&otilde;es Cr&iacute;ticas',
+    relatorio:'Relat&oacute;rio Geral de Seguran&ccedil;a'
   };
   document.getElementById('topbar-title').textContent = titles[p] || 'Safety Gemba Walk';
   if (p === 'relatorio') renderReport();
@@ -873,7 +892,7 @@ window.goPage = goPage;
 // ── Refresh ──
 window.refreshAll = async function() {
   if (ready) { await loadAll(); toast('Dados atualizados do Firestore.', 'ok'); }
-  else { renderAll(); toast('Sem conexão Firestore — mostrando dados locais.', 'err'); }
+  else { renderAll(); toast('Sem conex&atilde;o Firestore — mostrando dados locais.', 'err'); }
 };
 
 // ── Toast ──
@@ -915,10 +934,9 @@ if (!cfg()) {
 }
 
 console.log('%c🔧 Safety Gemba Walk %c| %cHTML + Vanilla JS + Chart.js + Firebase Firestore',
-  'color:#f59e0b;font-weight:bold','','color:#8b90a0');
-console.log('%c💡 Configure o Firebase no localStorage: gemba_fb = { apiKey: "...", projectId: "..." }',
-  'color:#f59e0b');
+  'color:#0ea5a0;font-weight:bold','','color:#64748b');
+console.log('%c💡 Configure o Firebase: localStorage gemba_fb = { apiKey: "...", projectId: "..." }',
+  'color:#0ea5a0');
 </script>
-
 </body>
 </html>
