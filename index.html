@@ -33,41 +33,68 @@ let currentRows = [];
 
 const $ = (id) => document.getElementById(id);
 
-const loginScreen = $("loginScreen");
-const appScreen = $("appScreen");
-const loginBtn = $("loginBtn");
-const logoutBtn = $("logoutBtn");
-const loginError = $("loginError");
-const emailInput = $("email");
-const passwordInput = $("password");
-
-loginBtn.addEventListener("click", login);
-passwordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
-
-logoutBtn.addEventListener("click", async () => {
-  if (unsubscribeInspections) unsubscribeInspections();
-  await signOut(auth);
-});
-
-document.querySelectorAll("[data-view]").forEach((button) => {
-  button.addEventListener("click", () => {
-    activeView = button.dataset.view;
-    setActiveButton();
-    render();
-  });
-});
-
-$("searchInput").addEventListener("input", render);
-$("areaFilter").addEventListener("change", render);
-$("statusFilter").addEventListener("change", render);
-$("criticalFilter").addEventListener("change", render);
-
 window.addEventListener("DOMContentLoaded", () => {
+  const loginScreen = $("loginScreen");
+  const appScreen = $("appScreen");
+  const loginBtn = $("loginBtn");
+  const logoutBtn = $("logoutBtn");
+  const passwordInput = $("password");
+
+  loginBtn.addEventListener("click", login);
+  passwordInput.addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+
+  logoutBtn.addEventListener("click", async () => {
+    if (unsubscribeInspections) unsubscribeInspections();
+    await signOut(auth);
+  });
+
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setDashboardView(button.dataset.view);
+    });
+  });
+
+  document.querySelectorAll("[data-report]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setReportMode(button.dataset.report);
+    });
+  });
+
+  $("searchInput").addEventListener("input", render);
+  $("areaFilter").addEventListener("change", render);
+  $("statusFilter").addEventListener("change", render);
+  $("criticalFilter").addEventListener("change", render);
   $("detailClose")?.addEventListener("click", closeDetailPanel);
   $("detailBackdrop")?.addEventListener("click", closeDetailPanel);
+  $("btnPrintReport")?.addEventListener("click", () => window.print());
+  $("btnRefresh")?.addEventListener("click", () => render());
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      loginScreen.style.display = "grid";
+      appScreen.style.display = "none";
+      return;
+    }
+
+    loginScreen.style.display = "none";
+    appScreen.style.display = "grid";
+
+    currentUserProfile = await loadUserProfile(user.email);
+    $("userName").textContent = currentUserProfile.fullName || user.email;
+    $("userRole").textContent = currentUserProfile.isAdmin ? "Administrador" : "Usuário comum";
+
+    listenInspections();
+  });
+
+  setActiveButton();
 });
 
 async function login() {
+  const loginBtn = $("loginBtn");
+  const loginError = $("loginError");
+  const emailInput = $("email");
+  const passwordInput = $("password");
+
   loginError.textContent = "";
   loginBtn.disabled = true;
   loginBtn.textContent = "Entrando...";
@@ -81,23 +108,6 @@ async function login() {
     loginBtn.textContent = "Entrar";
   }
 }
-
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    loginScreen.style.display = "grid";
-    appScreen.style.display = "none";
-    return;
-  }
-
-  loginScreen.style.display = "none";
-  appScreen.style.display = "grid";
-
-  currentUserProfile = await loadUserProfile(user.email);
-  $("userName").textContent = currentUserProfile.fullName || user.email;
-  $("userRole").textContent = currentUserProfile.isAdmin ? "Administrador" : "Usuário comum";
-
-  listenInspections();
-});
 
 async function loadUserProfile(email) {
   const base = {
@@ -143,25 +153,44 @@ function listenInspections() {
     fillAreaFilter();
     render();
     $("syncStatus").textContent = "Atualizado agora";
+    $("lastUpdate").textContent = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }, (error) => {
     console.error(error);
     $("syncStatus").textContent = "Erro ao carregar dados";
   });
 }
 
+function setDashboardView(view) {
+  activeView = view;
+  setActiveButton();
+  render();
+}
+
+function setReportMode(mode) {
+  if (mode === "print") {
+    window.print();
+    return;
+  }
+  if (mode === "critical") {
+    activeView = "critical";
+  } else if (mode === "pending") {
+    activeView = "pending";
+  } else if (mode === "os") {
+    activeView = "os";
+  } else {
+    activeView = "overview";
+  }
+  setActiveButton();
+  render();
+  document.getElementById("reportSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function firstValidText(values) {
   for (const value of values) {
     if (value === null || value === undefined) continue;
-
-    if (typeof value === "string" && value.trim() !== "") {
-      return value.trim();
-    }
-
-    if (typeof value === "number") {
-      return String(value);
-    }
+    if (typeof value === "string" && value.trim() !== "") return value.trim();
+    if (typeof value === "number") return String(value);
   }
-
   return "";
 }
 
@@ -173,14 +202,12 @@ function getInspectorName(inspection, action = null) {
     action?.responsibleName,
     action?.responsible,
     action?.userName,
-
     inspection?.inspectorName,
     inspection?.inspector,
     inspection?.createdByName,
     inspection?.responsibleName,
     inspection?.responsible,
     inspection?.userName,
-
     inspection?.user?.fullName,
     inspection?.user?.name,
     inspection?.createdBy?.fullName,
@@ -233,7 +260,16 @@ function render() {
   const rows = getRows();
   renderKpis();
   renderCharts();
+  renderReport();
   renderTable(rows);
+}
+
+function getAllActionRows() {
+  const allActionRows = [];
+  visibleInspections.forEach((inspection) => {
+    (inspection.actions || []).forEach(action => allActionRows.push({ inspection, action }));
+  });
+  return allActionRows;
 }
 
 function getRows() {
@@ -294,31 +330,29 @@ function getRows() {
 }
 
 function renderKpis() {
-  const allActionRows = [];
-  visibleInspections.forEach((inspection) => {
-    (inspection.actions || []).forEach(action => allActionRows.push({ inspection, action }));
-  });
-
+  const allActionRows = getAllActionRows();
   const totalActions = allActionRows.length;
   const completed = allActionRows.filter(r => isCompleted(r.action)).length;
+  const pending = allActionRows.filter(r => isPending(r.action)).length;
+  const os = allActionRows.filter(r => r.action.hasWorkOrder && isPending(r.action)).length;
+  const critical = allActionRows.filter(r => isPending(r.action) && isCritical(r.action)).length;
   const completionRate = totalActions ? Math.round((completed / totalActions) * 100) : 0;
 
   setText("kpiInspections", visibleInspections.length);
   setText("kpiActions", totalActions);
-  setText("kpiPending", allActionRows.filter(r => isPending(r.action)).length);
+  setText("kpiPending", pending);
   setText("kpiCompleted", completed);
-  setText("kpiOs", allActionRows.filter(r => r.action.hasWorkOrder && isPending(r.action)).length);
-  setText("kpiCritical", allActionRows.filter(r => isPending(r.action) && isCritical(r.action)).length);
+  setText("kpiOs", os);
+  setText("kpiCritical", critical);
   setText("completionRate", `${completionRate}%`);
+  setText("reportTotalActions", totalActions);
+  setText("reportPending", pending);
+  setText("reportCritical", critical);
+  setText("reportCompletion", `${completionRate}%`);
 }
 
 function renderCharts() {
-  const actionRows = [];
-  visibleInspections.forEach((inspection) => {
-    (inspection.actions || []).forEach(action => {
-      if (isPending(action)) actionRows.push({ inspection, action });
-    });
-  });
+  const actionRows = getAllActionRows().filter(r => isPending(r.action));
 
   const areaMap = new Map();
   actionRows.forEach(r => {
@@ -349,8 +383,52 @@ function renderCharts() {
   renderBarChart("chartOs", osAge, "Sem OS pendente.");
 }
 
+function renderReport() {
+  const rows = getAllActionRows();
+  const completed = rows.filter(r => isCompleted(r.action)).length;
+  const pending = rows.filter(r => isPending(r.action)).length;
+  const critical = rows.filter(r => isPending(r.action) && isCritical(r.action)).length;
+  const normal = Math.max(0, rows.length - completed - pending);
+
+  renderDonut("statusDonut", [
+    { label: "Pendentes", value: pending },
+    { label: "Concluídas", value: completed },
+    { label: "Críticas", value: critical },
+    { label: "Outras", value: normal }
+  ]);
+
+  const byInspector = new Map();
+  rows.forEach(r => {
+    const inspector = getInspectorName(r.inspection, r.action);
+    byInspector.set(inspector, (byInspector.get(inspector) || 0) + 1);
+  });
+
+  const topInspectors = [...byInspector.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
+  renderBarChart("chartInspector", topInspectors, "Sem dados por inspetor.");
+
+  const criticalRows = rows
+    .filter(r => isPending(r.action) && isCritical(r.action))
+    .sort((a, b) => daysSince(b.action.createdAt) - daysSince(a.action.createdAt))
+    .slice(0, 5);
+
+  $("criticalList").innerHTML = criticalRows.length
+    ? criticalRows.map(r => `
+      <div class="critical-item">
+        <strong>${escapeHtml(r.action.unsafeCondition || r.inspection.title || "Ação crítica")}</strong>
+        <span>${escapeHtml(r.inspection.location || "-")} · ${daysSince(r.action.createdAt)} dias pendente</span>
+      </div>
+    `).join("")
+    : `<div class="empty">Sem ações críticas pendentes.</div>`;
+}
+
 function renderBarChart(id, items, emptyText) {
   const el = $(id);
+  if (!el) return;
+
   const max = Math.max(...items.map(i => i.value), 0);
 
   if (!items.length || max === 0) {
@@ -368,6 +446,40 @@ function renderBarChart(id, items, emptyText) {
       </div>
     `;
   }).join("");
+}
+
+function renderDonut(id, items) {
+  const el = $(id);
+  if (!el) return;
+
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  if (!total) {
+    el.innerHTML = `<div class="empty">Sem dados para composição.</div>`;
+    return;
+  }
+
+  let start = 0;
+  const colors = ["#f9a825", "#1b8f4d", "#d32f2f", "#153b66"];
+  const gradient = items.map((item, index) => {
+    const pct = (item.value / total) * 100;
+    const end = start + pct;
+    const slice = `${colors[index % colors.length]} ${start}% ${end}%`;
+    start = end;
+    return slice;
+  }).join(", ");
+
+  el.innerHTML = `
+    <div class="donut-wrap">
+      <div class="donut" style="background: conic-gradient(${gradient});">
+        <div><strong>${total}</strong><small>ações</small></div>
+      </div>
+      <div class="donut-legend">
+        ${items.map((item, index) => `
+          <span><i style="background:${colors[index % colors.length]}"></i>${escapeHtml(item.label)}: <strong>${item.value}</strong></span>
+        `).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderTable(rows) {
@@ -442,21 +554,15 @@ window.openDetailPanel = function(rowIndex) {
     ? `Inspeção #${inspection.id}`
     : (action.unsafeCondition || "Ação sem título");
 
-  const statusClass = isCompleted(action) ? "ok" : "warn";
+  const statusClass = action ? (isCompleted(action) ? "ok" : "warn") : "neutral";
   const criticalClass = critical ? "danger" : "neutral";
   const createdAt = action?.createdAt || inspection.createdAt;
   const updatedAt = action?.updatedAt || inspection.updatedAt;
 
   $("detailContent").innerHTML = `
     <div class="detail-hero">
-      <div>
-        <small>STATUS</small>
-        <span class="pill ${statusClass}">${escapeHtml(statusLabel)}</span>
-      </div>
-      <div>
-        <small>CRITICIDADE</small>
-        <span class="pill ${criticalClass}">${critical ? "Crítica" : "Normal"}</span>
-      </div>
+      <div><small>Status</small><span class="pill ${statusClass}">${escapeHtml(statusLabel)}</span></div>
+      <div><small>Criticidade</small><span class="pill ${criticalClass}">${critical ? "Crítica" : "Normal"}</span></div>
     </div>
 
     <div class="detail-section premium">
@@ -515,9 +621,15 @@ function setActiveButton() {
   document.querySelectorAll("[data-view]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.view === activeView);
   });
+  document.querySelectorAll(".kpi[data-view]").forEach((card) => {
+    card.classList.toggle("active-card", card.dataset.view === activeView);
+  });
 }
 
-function setText(id, value) { $(id).textContent = value; }
+function setText(id, value) {
+  const el = $(id);
+  if (el) el.textContent = value;
+}
 
 function normalize(value) {
   return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -566,9 +678,8 @@ function daysSince(value) {
   if (!ms) return 0;
   return Math.max(0, Math.floor((Date.now() - ms) / 86400000));
 }
-
-setActiveButton();
 </script>
+
 <style>
 :root {
   --bg: #f3f6fb;
@@ -675,45 +786,45 @@ body {
   height: 100vh;
 }
 
-.brand {
-  margin-bottom: 34px;
+.brand { margin-bottom: 28px; }
+.brand strong { display: block; font-size: 24px; line-height: 30px; }
+.brand span { color: rgba(255,255,255,.68); font-size: 12px; margin-top: 6px; display: block; }
+
+.nav-title {
+  color: rgba(255,255,255,.55);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .9px;
+  margin: 22px 0 10px;
+  font-weight: 900;
 }
 
-.brand strong {
-  display: block;
-  font-size: 24px;
-  line-height: 30px;
-}
+.nav { display: grid; gap: 10px; }
 
-.brand span {
-  color: rgba(255,255,255,.68);
-  font-size: 12px;
-  margin-top: 6px;
-  display: block;
-}
-
-.nav {
-  display: grid;
-  gap: 12px;
-}
-
-.nav button {
+.nav button,
+.side-action {
   text-align: left;
   border: none;
   border-radius: 16px;
   padding: 14px 16px;
   background: rgba(255,255,255,.08);
-  color: rgba(255,255,255,.82);
-  font-size: 15px;
-  font-weight: 700;
+  color: rgba(255,255,255,.86);
+  font-size: 14px;
+  font-weight: 800;
   cursor: pointer;
   transition: .2s;
 }
 
 .nav button.active,
-.nav button:hover {
+.nav button:hover,
+.side-action:hover {
   background: white;
   color: var(--primary);
+}
+
+.side-action.gold {
+  background: linear-gradient(135deg, #f5b400, #ffce3a);
+  color: #102646;
 }
 
 .user-box {
@@ -725,21 +836,10 @@ body {
   padding-top: 18px;
 }
 
-.user-box strong {
-  display: block;
-  font-size: 15px;
-}
+.user-box strong { display: block; font-size: 15px; }
+.user-box span { display: block; color: rgba(255,255,255,.72); font-size: 12px; margin-top: 4px; }
 
-.user-box span {
-  display: block;
-  color: rgba(255,255,255,.72);
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.main {
-  padding: 28px;
-}
+.main { padding: 28px; }
 
 .topbar {
   display: flex;
@@ -748,19 +848,11 @@ body {
   margin-bottom: 24px;
 }
 
-.topbar h1 {
-  margin: 0;
-  font-size: 40px;
-  letter-spacing: -1px;
-}
+.topbar h1 { margin: 0; font-size: 40px; letter-spacing: -1px; }
+.topbar p { margin: 8px 0 0; color: var(--muted); }
 
-.topbar p {
-  margin: 8px 0 0;
-  color: var(--muted);
-}
-
-.logout {
-  min-width: 120px;
+.logout,
+.top-action {
   border: none;
   border-radius: 14px;
   padding: 14px 18px;
@@ -769,6 +861,9 @@ body {
   font-weight: 800;
   cursor: pointer;
 }
+
+.top-actions { display: flex; gap: 10px; }
+.top-action.secondary { background: var(--surface); color: var(--primary); border: 1px solid var(--border); }
 
 .kpis {
   display: grid;
@@ -783,24 +878,20 @@ body {
   padding: 20px;
   box-shadow: var(--shadow);
   transition: .2s ease;
+  cursor: pointer;
+  text-align: left;
 }
 
-.kpi:hover {
+.kpi:hover,
+.kpi.active-card {
   transform: translateY(-4px);
   box-shadow: 0 26px 60px rgba(16,38,70,.18);
+  border-color: rgba(21,59,102,.35);
 }
 
-.kpi small {
-  color: var(--muted);
-  font-weight: 800;
-}
-
-.kpi strong {
-  display: block;
-  margin-top: 12px;
-  font-size: 44px;
-  letter-spacing: -1px;
-}
+.kpi small { color: var(--muted); font-weight: 800; }
+.kpi strong { display: block; margin-top: 12px; font-size: 44px; letter-spacing: -1px; }
+.kpi span { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
 
 .executive-summary {
   margin: 18px 0;
@@ -811,15 +902,8 @@ body {
   box-shadow: var(--shadow);
 }
 
-.executive-summary h2 {
-  margin: 0 0 8px;
-}
-
-.executive-summary p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.6;
-}
+.executive-summary h2 { margin: 0 0 8px; }
+.executive-summary p { margin: 0; color: var(--muted); line-height: 1.6; }
 
 .filters {
   background: var(--surface);
@@ -842,11 +926,16 @@ body {
   font-size: 14px;
 }
 
-.charts {
+.charts,
+.report-grid {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr;
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.report-grid {
+  grid-template-columns: 1fr 1fr 1fr;
 }
 
 .panel {
@@ -857,16 +946,24 @@ body {
   box-shadow: var(--shadow);
 }
 
-.panel h2 {
-  margin: 0;
-  font-size: 18px;
+.panel h2 { margin: 0; font-size: 18px; }
+.panel p { margin: 6px 0 16px; color: var(--muted); font-size: 13px; }
+
+.report-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
 }
 
-.panel p {
-  margin: 6px 0 16px;
-  color: var(--muted);
-  font-size: 13px;
+.report-metric {
+  background: #f8fbff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
 }
+
+.report-metric small { color: var(--muted); font-weight: 800; }
+.report-metric strong { display: block; margin-top: 6px; font-size: 26px; }
 
 .bar-row {
   display: grid;
@@ -898,52 +995,49 @@ body {
   border-radius: 999px;
 }
 
-.table-panel {
-  overflow: hidden;
-  padding: 0;
+.donut-wrap { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: center; }
+.donut {
+  width: 138px;
+  height: 138px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
 }
-
-.table-title {
-  padding: 18px 18px 0;
+.donut > div {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: white;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px var(--border);
 }
+.donut strong { font-size: 24px; line-height: 20px; }
+.donut small { color: var(--muted); }
+.donut-legend { display: grid; gap: 8px; }
+.donut-legend span { color: var(--muted); font-size: 13px; }
+.donut-legend i { width: 10px; height: 10px; display: inline-block; border-radius: 99px; margin-right: 8px; }
 
-.table-wrap {
-  overflow: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 1120px;
-}
-
-th, td {
-  padding: 14px 16px;
-  text-align: left;
+.critical-item {
+  display: grid;
+  gap: 3px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
-  vertical-align: top;
 }
+.critical-item:last-child { border-bottom: none; }
+.critical-item span { color: var(--muted); font-size: 12px; }
 
-th {
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  background: #f8fbff;
-}
+.table-panel { overflow: hidden; padding: 0; }
+.table-title { padding: 18px 18px 0; }
+.table-wrap { overflow: auto; }
 
-tbody tr {
-  transition: .15s;
-}
-
-tbody tr:hover {
-  background: #f4f8fc;
-}
-
-td small {
-  display: block;
-  color: var(--muted);
-  margin-top: 4px;
-}
+table { width: 100%; border-collapse: collapse; min-width: 1120px; }
+th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; background: #f8fbff; }
+tbody tr { transition: .15s; }
+tbody tr:hover { background: #f4f8fc; }
+td small { display: block; color: var(--muted); margin-top: 4px; }
 
 .pill {
   display: inline-block;
@@ -953,25 +1047,10 @@ td small {
   font-weight: 800;
 }
 
-.pill.ok {
-  color: var(--ok);
-  background: rgba(27,143,77,.10);
-}
-
-.pill.warn {
-  color: #9a6a00;
-  background: rgba(249,168,37,.15);
-}
-
-.pill.danger {
-  color: white;
-  background: linear-gradient(135deg,#c62828,#ff5252);
-}
-
-.pill.neutral {
-  color: var(--primary);
-  background: rgba(21,59,102,.10);
-}
+.pill.ok { color: var(--ok); background: rgba(27,143,77,.10); }
+.pill.warn { color: #9a6a00; background: rgba(249,168,37,.15); }
+.pill.danger { color: white; background: linear-gradient(135deg,#c62828,#ff5252); }
+.pill.neutral { color: var(--primary); background: rgba(21,59,102,.10); }
 
 .detail-btn {
   border: none;
@@ -992,11 +1071,7 @@ td small {
   transition: .2s;
   z-index: 20;
 }
-
-.detail-backdrop.show {
-  opacity: 1;
-  pointer-events: auto;
-}
+.detail-backdrop.show { opacity: 1; pointer-events: auto; }
 
 .detail-panel {
   position: fixed;
@@ -1015,23 +1090,17 @@ td small {
   flex-direction: column;
   overflow: hidden;
 }
-
-.detail-panel.show {
-  transform: translateX(0);
-}
+.detail-panel.show { transform: translateX(0); }
 
 .detail-header {
   padding: 24px;
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
+  gap: 16px;
 }
 
-.detail-content {
-  padding: 22px;
-  overflow: auto;
-}
-
+.detail-content { padding: 22px; overflow: auto; }
 .detail-close {
   border: none;
   background: var(--surface-2);
@@ -1041,122 +1110,168 @@ td small {
   font-weight: 800;
 }
 
+.detail-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.detail-hero > div,
+.detail-grid div {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f8fbff;
+  padding: 14px;
+}
+.detail-hero small,
+.detail-grid small {
+  display: block;
+  color: var(--muted);
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+.detail-section {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
+  background: #fff;
+}
+.detail-section.premium { border-left: 5px solid var(--primary); }
+.detail-section h3 { margin: 0 0 12px; }
+.detail-section p { margin: 0; line-height: 1.45; }
+.detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.detail-grid strong { word-break: break-word; }
+.timeline { display: grid; gap: 10px; }
+.timeline div {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  background: #f8fbff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+.timeline span { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+.timeline small { color: var(--muted); font-weight: 800; }
+
+.pdf-link {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 800;
+}
+.pdf-link.big { width: 100%; text-align: center; padding: 14px 18px; }
+.detail-actions { display: flex; justify-content: flex-end; }
+.secondary-btn {
+  border: none;
+  border-radius: 14px;
+  padding: 13px 16px;
+  font-weight: 900;
+  cursor: pointer;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.muted-text, .empty { color: var(--muted); font-size: 13px; }
+.empty-table { text-align: center; color: var(--muted); padding: 40px; }
+
 .footer {
   margin-top: 20px;
   color: var(--muted);
   font-size: 11px;
   text-align: center;
+  line-height: 1.6;
+}
+.footer strong { color: var(--primary); }
+
+@media print {
+  .sidebar, .topbar, .filters, .detail-backdrop, .detail-panel { display: none !important; }
+  .app-screen { display: block !important; }
+  .main { padding: 0; }
+  body { background: white; }
+  .panel, .kpi, .executive-summary { box-shadow: none; }
 }
 
 @media (max-width: 1100px) {
-  .app-screen {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar {
-    position: relative;
-    height: auto;
-  }
-
-  .user-box {
-    position: static;
-    margin-top: 20px;
-  }
-
-  .kpis {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .charts,
-  .filters {
-    grid-template-columns: 1fr;
-  }
+  .app-screen { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; }
+  .user-box { position: static; margin-top: 20px; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .charts, .filters, .report-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
-  .main {
-    padding: 16px;
-  }
-
-  .kpis {
-    grid-template-columns: 1fr;
-  }
-
-  .topbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .logout {
-    width: 100%;
-  }
+  .main { padding: 16px; }
+  .kpis { grid-template-columns: 1fr; }
+  .topbar { align-items: flex-start; flex-direction: column; }
+  .top-actions, .logout { width: 100%; }
+  .top-actions { flex-direction: column; }
+  .report-metrics { grid-template-columns: 1fr 1fr; }
+  .donut-wrap { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 
 <body>
-
 <section id="loginScreen" class="login-screen">
   <div class="login-box">
     <h1>Safety Gemba Walk</h1>
     <p>Plataforma executiva de inspeções e gestão operacional.</p>
-
     <input id="email" type="email" placeholder="E-mail" />
     <br><br>
-
     <input id="password" type="password" placeholder="Senha" />
     <br><br>
-
     <button id="loginBtn">Entrar</button>
-
     <div id="loginError" class="error"></div>
   </div>
 </section>
 
 <section id="appScreen" class="app-screen" style="display:none">
-
   <aside class="sidebar">
-
     <div class="brand">
       <strong>Safety Gemba Walk</strong>
       <span>Dashboard Corporativo de Segurança</span>
     </div>
 
+    <div class="nav-title">Navegação</div>
     <nav class="nav">
-      <button data-view="overview" class="active">Visão geral</button>
-      <button data-view="inspections">Inspeções</button>
-      <button data-view="pending">Pendências</button>
-      <button data-view="os">OS abertas</button>
-      <button data-view="critical">Críticas</button>
+      <button data-view="overview" class="active">Dashboard</button>
+      <button data-report="pending">Relatório de pendências</button>
+      <button data-report="critical">Relatório de críticas</button>
+      <button data-report="os">OS abertas</button>
+      <button data-report="print" class="side-action gold">Gerar relatório</button>
     </nav>
+
+    <div class="nav-title">Status</div>
+    <button id="btnRefresh" class="side-action">Atualizar indicadores</button>
 
     <div class="user-box">
       <strong id="userName">Usuário</strong>
       <span id="userRole">Perfil</span>
       <span id="syncStatus">Atualizando...</span>
+      <span>Última atualização: <b id="lastUpdate">--:--</b></span>
     </div>
-
   </aside>
 
   <main class="main">
-
     <div class="topbar">
       <div>
         <h1>Safety Gemba Walk</h1>
         <p>Painel executivo de inspeções, ações corretivas e gestão operacional.</p>
       </div>
-
-      <button id="logoutBtn" class="logout">Sair</button>
+      <div class="top-actions">
+        <button id="btnPrintReport" class="top-action secondary">Relatório</button>
+        <button id="logoutBtn" class="logout">Sair</button>
+      </div>
     </div>
 
     <section class="kpis">
-      <div class="kpi"><small>Inspeções</small><strong id="kpiInspections">0</strong></div>
-      <div class="kpi"><small>Ações</small><strong id="kpiActions">0</strong></div>
-      <div class="kpi"><small>Pendentes</small><strong id="kpiPending">0</strong></div>
-      <div class="kpi"><small>Concluídas</small><strong id="kpiCompleted">0</strong></div>
-      <div class="kpi"><small>OS abertas</small><strong id="kpiOs">0</strong></div>
-      <div class="kpi"><small>Críticas</small><strong id="kpiCritical">0</strong></div>
-      <div class="kpi"><small>% conclusão</small><strong id="completionRate">0%</strong></div>
+      <button class="kpi" data-view="inspections"><small>Inspeções</small><strong id="kpiInspections">0</strong><span>abrir base</span></button>
+      <button class="kpi" data-view="overview"><small>Ações</small><strong id="kpiActions">0</strong><span>visão geral</span></button>
+      <button class="kpi" data-view="pending"><small>Pendentes</small><strong id="kpiPending">0</strong><span>filtrar pendências</span></button>
+      <button class="kpi" data-view="overview"><small>Concluídas</small><strong id="kpiCompleted">0</strong><span>indicador de fechamento</span></button>
+      <button class="kpi" data-view="os"><small>OS abertas</small><strong id="kpiOs">0</strong><span>filtrar OS</span></button>
+      <button class="kpi" data-view="critical"><small>Críticas</small><strong id="kpiCritical">0</strong><span>prioridade alta</span></button>
+      <button class="kpi" data-view="overview"><small>% conclusão</small><strong id="completionRate">0%</strong><span>performance</span></button>
     </section>
 
     <section class="executive-summary">
@@ -1168,19 +1283,25 @@ td small {
       </p>
     </section>
 
+    <section id="reportSection" class="panel">
+      <h2>Relatório gerencial</h2>
+      <p>Consolidação automática dos principais indicadores da operação.</p>
+      <div class="report-metrics">
+        <div class="report-metric"><small>Total de ações</small><strong id="reportTotalActions">0</strong></div>
+        <div class="report-metric"><small>Pendências</small><strong id="reportPending">0</strong></div>
+        <div class="report-metric"><small>Críticas</small><strong id="reportCritical">0</strong></div>
+        <div class="report-metric"><small>Conclusão</small><strong id="reportCompletion">0%</strong></div>
+      </div>
+    </section>
+
     <section class="filters">
       <input id="searchInput" type="text" placeholder="Buscar por área, inspetor, ação ou OS..." />
-
-      <select id="areaFilter">
-        <option value="">Todas as áreas</option>
-      </select>
-
+      <select id="areaFilter"><option value="">Todas as áreas</option></select>
       <select id="statusFilter">
         <option value="">Todos os status</option>
         <option value="PENDING">Pendentes</option>
         <option value="COMPLETED">Concluídas</option>
       </select>
-
       <select id="criticalFilter">
         <option value="">Todas criticidades</option>
         <option value="critical">Somente críticas</option>
@@ -1188,38 +1309,48 @@ td small {
     </section>
 
     <section class="charts">
-
       <div class="panel">
         <h2>Ranking por área</h2>
         <p>Áreas com maior volume de ações pendentes.</p>
         <div id="chartArea"></div>
       </div>
-
       <div class="panel">
         <h2>Idade das pendências</h2>
         <p>Tempo em aberto das ações corretivas.</p>
         <div id="chartAge"></div>
       </div>
-
       <div class="panel">
         <h2>OS abertas por tempo</h2>
         <p>Tempo de ordens de serviço vinculadas.</p>
         <div id="chartOs"></div>
       </div>
+    </section>
 
+    <section class="report-grid">
+      <div class="panel">
+        <h2>Composição dos status</h2>
+        <p>Distribuição executiva das ações registradas.</p>
+        <div id="statusDonut"></div>
+      </div>
+      <div class="panel">
+        <h2>Ações por inspetor</h2>
+        <p>Volume de registros por responsável.</p>
+        <div id="chartInspector"></div>
+      </div>
+      <div class="panel">
+        <h2>Top críticas</h2>
+        <p>Principais ações críticas em aberto.</p>
+        <div id="criticalList"></div>
+      </div>
     </section>
 
     <section class="panel table-panel">
-
       <div class="table-title">
         <h2>Base Operacional</h2>
         <p>Registros filtrados conforme os indicadores selecionados.</p>
       </div>
-
       <div class="table-wrap">
-
         <table>
-
           <thead>
             <tr>
               <th>Registro</th>
@@ -1233,47 +1364,31 @@ td small {
               <th>Ações</th>
             </tr>
           </thead>
-
           <tbody id="tableBody">
-            <tr>
-              <td colspan="9" class="empty-table">
-                Carregando registros...
-              </td>
-            </tr>
+            <tr><td colspan="9" class="empty-table">Carregando registros...</td></tr>
           </tbody>
-
         </table>
-
       </div>
-
     </section>
 
     <div class="footer">
-      Safety Gemba Walk © Plataforma Corporativa de Segurança
+      Safety Gemba Walk © Plataforma Corporativa de Segurança<br>
+      <strong>Desenvolvido por Henrique Vieira</strong>
     </div>
-
   </main>
-
 </section>
 
 <div id="detailBackdrop" class="detail-backdrop"></div>
 
 <aside id="detailPanel" class="detail-panel">
-
   <div class="detail-header">
     <div>
       <h2 id="detailTitle">Detalhes</h2>
       <p id="detailSubtitle">Registro selecionado</p>
     </div>
-
-    <button id="detailClose" class="detail-close">
-      Fechar
-    </button>
+    <button id="detailClose" class="detail-close">Fechar</button>
   </div>
-
   <div id="detailContent" class="detail-content"></div>
-
 </aside>
-
 </body>
 </html>
